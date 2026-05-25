@@ -1,14 +1,14 @@
 const asyncHandler = require("../utils/asyncHandler");
-const complaintService = require("../services/complaintService");
 const sendSuccess = require("../utils/apiResponse");
+const complaintService = require("../services/complaintService");
 
 const createComplaint = asyncHandler(async (req, res) => {
-  const complaint = await complaintService.createComplaint(req.body, req.user, req.files);
+  const complaint = await complaintService.createComplaint(req.body, req.user.id, req.files);
 
   sendSuccess(res, {
     statusCode: 201,
     message: "Complaint created successfully",
-    data: { complaint: complaintService.serializeComplaint(complaint) },
+    data: { complaint },
   });
 });
 
@@ -33,21 +33,22 @@ const getComplaintById = asyncHandler(async (req, res) => {
 });
 
 const updateComplaintStatus = asyncHandler(async (req, res) => {
-  const complaint = await complaintService.updateComplaintStatus(req.params.id, req.body, req.user);
+  const complaint = await complaintService.updateComplaintStatus(req.params.id, req.body);
 
   sendSuccess(res, {
     statusCode: 200,
     message: "Complaint updated successfully",
-    data: { complaint: complaintService.serializeComplaint(complaint) },
+    data: { complaint },
   });
 });
 
 const deleteComplaint = asyncHandler(async (req, res) => {
-  await complaintService.deleteComplaint(req.params.id, req.user);
+  const complaint = await complaintService.deleteComplaint(req.params.id);
 
   sendSuccess(res, {
     statusCode: 200,
     message: "Complaint deleted successfully",
+    data: { complaint },
   });
 });
 

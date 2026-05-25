@@ -6,21 +6,19 @@ const complaintSchema = new mongoose.Schema(
       type: String,
       required: [true, "Complaint title is required"],
       trim: true,
-      minlength: [5, "Title must be at least 5 characters long"],
-      maxlength: [150, "Title cannot exceed 150 characters"],
+      minlength: [3, "Complaint title must be at least 3 characters long"],
+      maxlength: [150, "Complaint title cannot exceed 150 characters"],
     },
     description: {
       type: String,
       required: [true, "Complaint description is required"],
       trim: true,
-      minlength: [10, "Description must be at least 10 characters long"],
-      maxlength: [2000, "Description cannot exceed 2000 characters"],
+      minlength: [10, "Complaint description must be at least 10 characters long"],
     },
     category: {
       type: String,
       required: [true, "Complaint category is required"],
       trim: true,
-      maxlength: [100, "Category cannot exceed 100 characters"],
     },
     priority: {
       type: String,
@@ -49,28 +47,21 @@ const complaintSchema = new mongoose.Schema(
     location: {
       address: {
         type: String,
-        trim: true,
         default: "",
+        trim: true,
       },
-      village: {
+      landmark: {
         type: String,
-        trim: true,
         default: "",
-      },
-      district: {
-        type: String,
         trim: true,
-        default: "",
       },
-      coordinates: {
-        latitude: {
-          type: Number,
-          default: null,
-        },
-        longitude: {
-          type: Number,
-          default: null,
-        },
+      latitude: {
+        type: Number,
+        default: null,
+      },
+      longitude: {
+        type: Number,
+        default: null,
       },
     },
   },

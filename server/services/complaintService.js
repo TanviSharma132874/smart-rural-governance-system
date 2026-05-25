@@ -2,77 +2,77 @@ const Complaint = require("../models/Complaint");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 
-const OFFICER_ROLES = ["panchayatOfficer", "districtAdmin", "superAdmin"];
-const STATUS_FLOW = {
-  Pending: ["In Progress", "Rejected"],
-  "In Progress": ["Resolved", "Rejected"],
-  Resolved: [],
-  Rejected: [],
+const populateOptions = [
+  { path: "citizenId", select: "name email phone role village district" },
+  { path: "assignedOfficer", select: "name email phone role village district" },
+];
+
+const formatUser = (user) => {
+  if (!user) {
+    return null;
+  }
+
+  if (typeof user === "string") {
+    return user;
+  }
+
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    phone: user.phone,
+    village: user.village,
+    district: user.district,
+  };
 };
 
-const serializeComplaint = (complaint) => ({
+const formatComplaint = (complaint) => ({
   id: complaint._id,
   title: complaint.title,
   description: complaint.description,
   category: complaint.category,
   priority: complaint.priority,
   status: complaint.status,
-  citizenId: complaint.citizenId,
-  assignedOfficer: complaint.assignedOfficer,
+  citizenId: formatUser(complaint.citizenId),
+  assignedOfficer: formatUser(complaint.assignedOfficer),
   images: complaint.images,
   location: complaint.location,
   createdAt: complaint.createdAt,
   updatedAt: complaint.updatedAt,
 });
 
-const buildImagePaths = (files = []) =>
-  files.map((file) => `/uploads/complaints/${file.filename}`);
+const normalizeLocation = (payload = {}) => {
+  const locationValue = typeof payload.location === "string" ? payload.location.trim() : "";
+  const address = payload.locationAddress?.trim() || locationValue;
+  const landmark = payload.landmark?.trim() || "";
+  const latitude = payload.latitude !== undefined && payload.latitude !== "" ? Number(payload.latitude) : null;
+  const longitude = payload.longitude !== undefined && payload.longitude !== "" ? Number(payload.longitude) : null;
 
-const validateAssignedOfficer = async (assignedOfficerId) => {
-  if (!assignedOfficerId) {
-    return null;
-  }
-
-  const officer = await User.findById(assignedOfficerId);
-
-  if (!officer) {
-    throw new AppError("Assigned officer not found", 404);
-  }
-
-  if (!OFFICER_ROLES.includes(officer.role)) {
-    throw new AppError("Assigned user must be a panchayat officer or admin", 400);
-  }
-
-  return officer;
+  return {
+    address,
+    landmark,
+    latitude: Number.isNaN(latitude) ? null : latitude,
+    longitude: Number.isNaN(longitude) ? null : longitude,
+  };
 };
 
-const createComplaint = async (payload, user, files = []) => {
-  if (payload.assignedOfficer) {
-    throw new AppError("Citizens cannot assign officers while creating complaints", 403);
-  }
+const normalizeImages = (files = []) => files.map((file) => `/uploads/complaints/${file.filename}`);
 
+const createComplaint = async (payload, citizenId, files = []) => {
   const complaint = await Complaint.create({
     title: payload.title,
     description: payload.description,
     category: payload.category,
     priority: payload.priority || "Medium",
-    citizenId: user.id,
-    assignedOfficer: payload.assignedOfficer || null,
-    images: buildImagePaths(files),
-    location: {
-      address: payload.address || "",
-      village: payload.village || "",
-      district: payload.district || "",
-      coordinates: {
-        latitude: payload.latitude !== undefined ? Number(payload.latitude) : null,
-        longitude: payload.longitude !== undefined ? Number(payload.longitude) : null,
-      },
-    },
+    citizenId,
+    images: normalizeImages(files),
+    location: normalizeLocation(payload),
   });
 
-  return Complaint.findById(complaint._id)
-    .populate("citizenId", "name email phone village district role")
-    .populate("assignedOfficer", "name email role");
+  await complaint.populate(populateOptions);
+
+  return formatComplaint(complaint);
 };
 
 const getComplaints = async (user, filters = {}) => {
@@ -86,114 +86,77 @@ const getComplaints = async (user, filters = {}) => {
     query.status = filters.status;
   }
 
-  if (filters.priority) {
-    query.priority = filters.priority;
-  }
-
   if (filters.category) {
     query.category = filters.category;
   }
 
-  const complaints = await Complaint.find(query)
-    .populate("citizenId", "name email phone village district role")
-    .populate("assignedOfficer", "name email role")
-    .sort({ createdAt: -1 });
+  if (filters.priority) {
+    query.priority = filters.priority;
+  }
 
-  return complaints.map(serializeComplaint);
+  const complaints = await Complaint.find(query).populate(populateOptions).sort({ createdAt: -1 });
+
+  return complaints.map(formatComplaint);
 };
 
 const getComplaintById = async (complaintId, user) => {
-  const complaint = await Complaint.findById(complaintId)
-    .populate("citizenId", "name email phone village district role")
-    .populate("assignedOfficer", "name email role");
+  const complaint = await Complaint.findById(complaintId).populate(populateOptions);
 
   if (!complaint) {
     throw new AppError("Complaint not found", 404);
   }
 
-  if (user.role === "citizen" && complaint.citizenId._id.toString() !== user.id.toString()) {
-    throw new AppError("You are not authorized to access this complaint", 403);
+  const isCitizenOwner = user.role === "citizen" && complaint.citizenId && complaint.citizenId._id.toString() === user.id.toString();
+  const isAdminOrOfficer = ["panchayatOfficer", "districtAdmin", "superAdmin"].includes(user.role);
+
+  if (!isCitizenOwner && !isAdminOrOfficer) {
+    throw new AppError("You are not authorized to view this complaint", 403);
   }
 
-  return serializeComplaint(complaint);
+  return formatComplaint(complaint);
 };
 
-const updateComplaintStatus = async (complaintId, payload, user) => {
+const updateComplaintStatus = async (complaintId, payload) => {
   const complaint = await Complaint.findById(complaintId);
 
   if (!complaint) {
     throw new AppError("Complaint not found", 404);
   }
 
-  if (!OFFICER_ROLES.includes(user.role)) {
-    throw new AppError("Only officers and admins can update complaint status", 403);
-  }
-
-  if (payload.status && payload.status !== complaint.status) {
-    const allowedStatuses = STATUS_FLOW[complaint.status] || [];
-
-    if (!allowedStatuses.includes(payload.status)) {
-      throw new AppError(
-        `Invalid status transition from ${complaint.status} to ${payload.status}`,
-        400
-      );
-    }
-
+  if (payload.status) {
     complaint.status = payload.status;
   }
 
-  if (payload.priority) {
-    complaint.priority = payload.priority;
-  }
+  if (payload.assignedOfficer) {
+    const officer = await User.findById(payload.assignedOfficer);
 
-  if (Object.prototype.hasOwnProperty.call(payload, "assignedOfficer")) {
-    if (payload.assignedOfficer) {
-      const normalizedOfficerId =
-        typeof payload.assignedOfficer === "string" ? payload.assignedOfficer.trim() : payload.assignedOfficer;
-
-      await validateAssignedOfficer(normalizedOfficerId);
-      complaint.assignedOfficer = normalizedOfficerId;
-    } else {
-      complaint.assignedOfficer = null;
+    if (!officer) {
+      throw new AppError("Assigned officer was not found", 404);
     }
+
+    complaint.assignedOfficer = officer._id;
   }
 
   await complaint.save();
+  await complaint.populate(populateOptions);
 
-  return Complaint.findById(complaint._id)
-    .populate("citizenId", "name email phone village district role")
-    .populate("assignedOfficer", "name email role");
+  return formatComplaint(complaint);
 };
 
-const deleteComplaint = async (complaintId, user) => {
-  const complaint = await Complaint.findById(complaintId);
+const deleteComplaint = async (complaintId) => {
+  const complaint = await Complaint.findByIdAndDelete(complaintId).populate(populateOptions);
 
   if (!complaint) {
     throw new AppError("Complaint not found", 404);
   }
 
-  const isOwner = complaint.citizenId.toString() === user.id.toString();
-  const isOfficer = OFFICER_ROLES.includes(user.role);
-
-  if (!isOwner && !isOfficer) {
-    throw new AppError("You are not authorized to delete this complaint", 403);
-  }
-
-  if (isOwner && complaint.status !== "Pending") {
-    throw new AppError("Citizens can only delete complaints that are still pending", 400);
-  }
-
-  await complaint.deleteOne();
+  return formatComplaint(complaint);
 };
 
 module.exports = {
-  OFFICER_ROLES,
-  STATUS_FLOW,
   createComplaint,
   getComplaints,
   getComplaintById,
   updateComplaintStatus,
   deleteComplaint,
-  validateAssignedOfficer,
-  serializeComplaint,
 };
