@@ -7,14 +7,53 @@ const notFound = (req, _res, next) => {
 };
 
 const errorHandler = (error, _req, res, _next) => {
-  const statusCode = error.statusCode || 500;
-  const message = error.message || "Internal server error";
+  let normalizedError = error;
+
+  if (error.name === "CastError") {
+    normalizedError = {
+      statusCode: 400,
+      message: "Invalid resource identifier",
+      details: [
+        {
+          field: error.path,
+          message: "Provided identifier is not valid",
+        },
+      ],
+    };
+  }
+
+  if (error.name === "ValidationError") {
+    normalizedError = {
+      statusCode: 400,
+      message: "Validation failed",
+      details: Object.values(error.errors).map((validationError) => ({
+        field: validationError.path,
+        message: validationError.message,
+      })),
+    };
+  }
+
+  if (error.name === "MulterError") {
+    normalizedError = {
+      statusCode: 400,
+      message: "File upload validation failed",
+      details: [
+        {
+          field: error.field || "images",
+          message: error.message,
+        },
+      ],
+    };
+  }
+
+  const statusCode = normalizedError.statusCode || 500;
+  const message = normalizedError.message || "Internal server error";
 
   sendError(res, {
     statusCode,
     message,
-    details: error.details || null,
-    stack: process.env.NODE_ENV === "production" ? null : error.stack,
+    details: normalizedError.details || null,
+    stack: process.env.NODE_ENV === "production" ? null : normalizedError.stack,
   });
 };
 

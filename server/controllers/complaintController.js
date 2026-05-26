@@ -13,12 +13,13 @@ const createComplaint = asyncHandler(async (req, res) => {
 });
 
 const getComplaints = asyncHandler(async (req, res) => {
-  const complaints = await complaintService.getComplaints(req.user, req.query);
+  const result = await complaintService.getComplaints(req.user, req.query);
 
   sendSuccess(res, {
     statusCode: 200,
     message: "Complaints fetched successfully",
-    data: { complaints },
+    pagination: result.pagination,
+    data: result.complaints,
   });
 });
 
@@ -42,6 +43,16 @@ const updateComplaintStatus = asyncHandler(async (req, res) => {
   });
 });
 
+const assignComplaint = asyncHandler(async (req, res) => {
+  const complaint = await complaintService.assignComplaint(req.params.id, req.body.assignedOfficer);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "Complaint assigned successfully",
+    data: { complaint },
+  });
+});
+
 const deleteComplaint = asyncHandler(async (req, res) => {
   const complaint = await complaintService.deleteComplaint(req.params.id);
 
@@ -57,5 +68,6 @@ module.exports = {
   getComplaints,
   getComplaintById,
   updateComplaintStatus,
+  assignComplaint,
   deleteComplaint,
 };

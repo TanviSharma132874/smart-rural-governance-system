@@ -2,6 +2,20 @@ const Complaint = require("../models/Complaint");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 
+const OFFICER_ROLES = ["panchayatOfficer", "districtAdmin", "superAdmin"];
+const STATUS_TRANSITIONS = {
+  Pending: ["In Progress", "Rejected"],
+  "In Progress": ["Resolved", "Rejected"],
+  Resolved: [],
+  Rejected: [],
+};
+const PRIORITY_SORT_ORDER = {
+  Critical: 4,
+  High: 3,
+  Medium: 2,
+  Low: 1,
+};
+
 const populateOptions = [
   { path: "citizenId", select: "name email phone role village district" },
   { path: "assignedOfficer", select: "name email phone role village district" },
@@ -58,24 +72,9 @@ const normalizeLocation = (payload = {}) => {
 };
 
 const normalizeImages = (files = []) => files.map((file) => `/uploads/complaints/${file.filename}`);
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const createComplaint = async (payload, citizenId, files = []) => {
-  const complaint = await Complaint.create({
-    title: payload.title,
-    description: payload.description,
-    category: payload.category,
-    priority: payload.priority || "Medium",
-    citizenId,
-    images: normalizeImages(files),
-    location: normalizeLocation(payload),
-  });
-
-  await complaint.populate(populateOptions);
-
-  return formatComplaint(complaint);
-};
-
-const getComplaints = async (user, filters = {}) => {
+const buildComplaintQuery = (user, filters = {}) => {
   const query = {};
 
   if (user.role === "citizen") {
@@ -94,20 +93,113 @@ const getComplaints = async (user, filters = {}) => {
     query.priority = filters.priority;
   }
 
-  const complaints = await Complaint.find(query).populate(populateOptions).sort({ createdAt: -1 });
+  if (filters.search) {
+    const searchRegex = new RegExp(escapeRegex(filters.search.trim()), "i");
+    query.$or = [{ title: searchRegex }, { description: searchRegex }];
+  }
 
-  return complaints.map(formatComplaint);
+  return query;
+};
+
+const buildStandardSort = (sort = "latest") => {
+  if (sort === "oldest") {
+    return { createdAt: 1 };
+  }
+
+  return { createdAt: -1 };
+};
+
+const buildPagination = (page, limit, totalComplaints) => ({
+  page,
+  limit,
+  totalPages: totalComplaints === 0 ? 0 : Math.ceil(totalComplaints / limit),
+  totalComplaints,
+});
+
+const validateAssignedOfficer = async (assignedOfficerId) => {
+  const officer = await User.findById(assignedOfficerId).lean();
+
+  if (!officer) {
+    throw new AppError("Assigned officer not found", 404);
+  }
+
+  if (!OFFICER_ROLES.includes(officer.role)) {
+    throw new AppError("Assigned user must be a panchayat officer or admin", 400);
+  }
+
+  return officer;
+};
+
+const createComplaint = async (payload, citizenId, files = []) => {
+  const complaint = await Complaint.create({
+    title: payload.title,
+    description: payload.description,
+    category: payload.category,
+    priority: payload.priority || "Medium",
+    citizenId,
+    images: normalizeImages(files),
+    location: normalizeLocation(payload),
+  });
+
+  await complaint.populate(populateOptions);
+
+  return formatComplaint(complaint);
+};
+
+const getComplaints = async (user, filters = {}) => {
+  const page = filters.page || 1;
+  const limit = filters.limit || 10;
+  const skip = (page - 1) * limit;
+  const query = buildComplaintQuery(user, filters);
+  const sort = filters.sort || "latest";
+
+  const [totalComplaints, complaints] = await Promise.all([
+    Complaint.countDocuments(query),
+    sort === "priority"
+      ? Complaint.aggregate([
+          { $match: query },
+          {
+            $addFields: {
+              priorityRank: {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ["$priority", "Critical"] }, then: PRIORITY_SORT_ORDER.Critical },
+                    { case: { $eq: ["$priority", "High"] }, then: PRIORITY_SORT_ORDER.High },
+                    { case: { $eq: ["$priority", "Medium"] }, then: PRIORITY_SORT_ORDER.Medium },
+                    { case: { $eq: ["$priority", "Low"] }, then: PRIORITY_SORT_ORDER.Low },
+                  ],
+                  default: 0,
+                },
+              },
+            },
+          },
+          { $sort: { priorityRank: -1, createdAt: -1 } },
+          { $skip: skip },
+          { $limit: limit },
+        ]).then((items) => Complaint.populate(items, populateOptions))
+      : Complaint.find(query)
+          .populate(populateOptions)
+          .sort(buildStandardSort(sort))
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+  ]);
+
+  return {
+    complaints: complaints.map(formatComplaint),
+    pagination: buildPagination(page, limit, totalComplaints),
+  };
 };
 
 const getComplaintById = async (complaintId, user) => {
-  const complaint = await Complaint.findById(complaintId).populate(populateOptions);
+  const complaint = await Complaint.findById(complaintId).populate(populateOptions).lean();
 
   if (!complaint) {
     throw new AppError("Complaint not found", 404);
   }
 
   const isCitizenOwner = user.role === "citizen" && complaint.citizenId && complaint.citizenId._id.toString() === user.id.toString();
-  const isAdminOrOfficer = ["panchayatOfficer", "districtAdmin", "superAdmin"].includes(user.role);
+  const isAdminOrOfficer = OFFICER_ROLES.includes(user.role);
 
   if (!isCitizenOwner && !isAdminOrOfficer) {
     throw new AppError("You are not authorized to view this complaint", 403);
@@ -123,18 +215,39 @@ const updateComplaintStatus = async (complaintId, payload) => {
     throw new AppError("Complaint not found", 404);
   }
 
-  if (payload.status) {
-    complaint.status = payload.status;
+  if (!STATUS_TRANSITIONS[complaint.status].includes(payload.status)) {
+    throw new AppError(`Invalid status transition from ${complaint.status} to ${payload.status}`, 400);
   }
 
-  if (payload.assignedOfficer) {
-    const officer = await User.findById(payload.assignedOfficer);
+  complaint.status = payload.status;
 
-    if (!officer) {
-      throw new AppError("Assigned officer was not found", 404);
-    }
+  if (payload.priority) {
+    complaint.priority = payload.priority;
+  }
 
-    complaint.assignedOfficer = officer._id;
+  await complaint.save();
+  await complaint.populate(populateOptions);
+
+  return formatComplaint(complaint);
+};
+
+const assignComplaint = async (complaintId, assignedOfficerId) => {
+  const complaint = await Complaint.findById(complaintId);
+
+  if (!complaint) {
+    throw new AppError("Complaint not found", 404);
+  }
+
+  await validateAssignedOfficer(assignedOfficerId);
+
+  if (complaint.status === "Resolved" || complaint.status === "Rejected") {
+    throw new AppError("Closed complaints cannot be reassigned", 400);
+  }
+
+  complaint.assignedOfficer = assignedOfficerId;
+
+  if (complaint.status === "Pending") {
+    complaint.status = "In Progress";
   }
 
   await complaint.save();
@@ -158,5 +271,6 @@ module.exports = {
   getComplaints,
   getComplaintById,
   updateComplaintStatus,
+  assignComplaint,
   deleteComplaint,
 };

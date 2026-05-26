@@ -1,0 +1,80 @@
+@import "tailwindcss";
+@import "./styles/theme.css";
+
+@theme {
+  --color-ink-950: #172033;
+  --color-ink-900: #24324d;
+  --color-ink-800: #30405f;
+  --color-ink-200: #d7deea;
+  --color-ink-100: #edf1f7;
+  --color-cream-50: #fffaf2;
+  --color-sun-300: #f5c96a;
+  --color-sun-400: #e7ae3d;
+  --color-leaf-500: #2e7d62;
+  --color-leaf-600: #22634d;
+  --color-alert-500: #cc5636;
+  --color-alert-100: #fbe2db;
+  --color-sky-200: #b9d8df;
+  --font-sans: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+  --font-display: "Franklin Gothic Medium", "Trebuchet MS", sans-serif;
+  --shadow-panel: 0 18px 60px rgba(18, 34, 66, 0.14);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(circle at top left, rgba(245, 201, 106, 0.22), transparent 32%),
+    radial-gradient(circle at top right, rgba(46, 125, 98, 0.16), transparent 28%),
+    linear-gradient(180deg, #fffdf8 0%, #f5f8fb 45%, #edf2f7 100%);
+  color: #172033;
+  font-family: var(--font-sans);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell-grid {
+  background-image:
+    linear-gradient(rgba(36, 50, 77, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(36, 50, 77, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.glass-panel {
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(10px);
+}
+
+.page-enter {
+  animation: page-enter 420ms ease-out;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
