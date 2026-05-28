@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Toaster, toast } from "react-hot-toast";
 
 import AppRouter from "./routes/AppRouter";
 import { loadCurrentUser, logout } from "./redux/slices/authSlice";
@@ -16,6 +17,7 @@ function App() {
 
   useEffect(() => {
     const handleUnauthorized = () => {
+      toast.error("Your session expired. Please sign in again.");
       dispatch(logout());
     };
 
@@ -26,7 +28,21 @@ function App() {
     };
   }, [dispatch]);
 
-  return <AppRouter />;
+  return (
+    <>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            borderRadius: "18px",
+            background: "#172033",
+            color: "#fff",
+          },
+        }}
+      />
+      <AppRouter />
+    </>
+  );
 }
 
 export default App;

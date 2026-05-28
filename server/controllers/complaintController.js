@@ -34,7 +34,7 @@ const getComplaintById = asyncHandler(async (req, res) => {
 });
 
 const updateComplaintStatus = asyncHandler(async (req, res) => {
-  const complaint = await complaintService.updateComplaintStatus(req.params.id, req.body);
+  const complaint = await complaintService.updateComplaintStatus(req.params.id, req.body, req.user);
 
   sendSuccess(res, {
     statusCode: 200,
@@ -44,7 +44,7 @@ const updateComplaintStatus = asyncHandler(async (req, res) => {
 });
 
 const assignComplaint = asyncHandler(async (req, res) => {
-  const complaint = await complaintService.assignComplaint(req.params.id, req.body.assignedOfficer);
+  const complaint = await complaintService.assignComplaint(req.params.id, req.body.assignedOfficer, req.user);
 
   sendSuccess(res, {
     statusCode: 200,
@@ -54,11 +54,11 @@ const assignComplaint = asyncHandler(async (req, res) => {
 });
 
 const deleteComplaint = asyncHandler(async (req, res) => {
-  const complaint = await complaintService.deleteComplaint(req.params.id);
+  const complaint = await complaintService.deleteComplaint(req.params.id, req.user);
 
   sendSuccess(res, {
     statusCode: 200,
-    message: "Complaint deleted successfully",
+    message: "Complaint archived successfully",
     data: { complaint },
   });
 });

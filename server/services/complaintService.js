@@ -1,8 +1,13 @@
 const Complaint = require("../models/Complaint");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
+const logger = require("../utils/logger");
+const {
+  OFFICER_ROLES,
+  COMPLAINT_STATUSES,
+  COMPLAINT_PRIORITIES,
+} = require("../config/constants");
 
-const OFFICER_ROLES = ["panchayatOfficer", "districtAdmin", "superAdmin"];
 const STATUS_TRANSITIONS = {
   Pending: ["In Progress", "Rejected"],
   "In Progress": ["Resolved", "Rejected"],
@@ -16,9 +21,14 @@ const PRIORITY_SORT_ORDER = {
   Low: 1,
 };
 
-const populateOptions = [
+const listPopulateOptions = [
   { path: "citizenId", select: "name email phone role village district" },
   { path: "assignedOfficer", select: "name email phone role village district" },
+];
+
+const detailPopulateOptions = [
+  ...listPopulateOptions,
+  { path: "statusHistory.updatedBy", select: "name email role" },
 ];
 
 const formatUser = (user) => {
@@ -52,6 +62,19 @@ const formatComplaint = (complaint) => ({
   assignedOfficer: formatUser(complaint.assignedOfficer),
   images: complaint.images,
   location: complaint.location,
+  jurisdictionType: complaint.jurisdictionType,
+  escalationStatus: complaint.escalationStatus,
+  escalatedAt: complaint.escalatedAt,
+  isEscalated:
+    complaint.escalationStatus === "Escalated" ||
+    (!["Resolved", "Rejected"].includes(complaint.status) &&
+      Date.now() - new Date(complaint.createdAt).getTime() >= 7 * 24 * 60 * 60 * 1000),
+  statusHistory: (complaint.statusHistory || []).map((entry) => ({
+    status: entry.status,
+    updatedBy: formatUser(entry.updatedBy),
+    updatedAt: entry.updatedAt,
+  })),
+  isDeleted: complaint.isDeleted,
   createdAt: complaint.createdAt,
   updatedAt: complaint.updatedAt,
 });
@@ -75,7 +98,9 @@ const normalizeImages = (files = []) => files.map((file) => `/uploads/complaints
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const buildComplaintQuery = (user, filters = {}) => {
-  const query = {};
+  const query = {
+    isDeleted: false,
+  };
 
   if (user.role === "citizen") {
     query.citizenId = user.id;
@@ -91,6 +116,10 @@ const buildComplaintQuery = (user, filters = {}) => {
 
   if (filters.priority) {
     query.priority = filters.priority;
+  }
+
+  if (filters.jurisdictionType) {
+    query.jurisdictionType = filters.jurisdictionType;
   }
 
   if (filters.search) {
@@ -139,9 +168,22 @@ const createComplaint = async (payload, citizenId, files = []) => {
     citizenId,
     images: normalizeImages(files),
     location: normalizeLocation(payload),
+    jurisdictionType: payload.jurisdictionType || "Rural",
+    statusHistory: [
+      {
+        status: COMPLAINT_STATUSES[0],
+        updatedBy: citizenId,
+      },
+    ],
   });
 
-  await complaint.populate(populateOptions);
+  await complaint.populate(detailPopulateOptions);
+  logger.info("Complaint created", {
+    complaintId: complaint._id.toString(),
+    citizenId: citizenId.toString(),
+    priority: complaint.priority,
+    status: complaint.status,
+  });
 
   return formatComplaint(complaint);
 };
@@ -176,9 +218,9 @@ const getComplaints = async (user, filters = {}) => {
           { $sort: { priorityRank: -1, createdAt: -1 } },
           { $skip: skip },
           { $limit: limit },
-        ]).then((items) => Complaint.populate(items, populateOptions))
+        ]).then((items) => Complaint.populate(items, listPopulateOptions))
       : Complaint.find(query)
-          .populate(populateOptions)
+          .populate(listPopulateOptions)
           .sort(buildStandardSort(sort))
           .skip(skip)
           .limit(limit)
@@ -192,7 +234,7 @@ const getComplaints = async (user, filters = {}) => {
 };
 
 const getComplaintById = async (complaintId, user) => {
-  const complaint = await Complaint.findById(complaintId).populate(populateOptions).lean();
+  const complaint = await Complaint.findOne({ _id: complaintId, isDeleted: false }).populate(detailPopulateOptions).lean();
 
   if (!complaint) {
     throw new AppError("Complaint not found", 404);
@@ -208,8 +250,8 @@ const getComplaintById = async (complaintId, user) => {
   return formatComplaint(complaint);
 };
 
-const updateComplaintStatus = async (complaintId, payload) => {
-  const complaint = await Complaint.findById(complaintId);
+const updateComplaintStatus = async (complaintId, payload, user) => {
+  const complaint = await Complaint.findOne({ _id: complaintId, isDeleted: false });
 
   if (!complaint) {
     throw new AppError("Complaint not found", 404);
@@ -225,14 +267,25 @@ const updateComplaintStatus = async (complaintId, payload) => {
     complaint.priority = payload.priority;
   }
 
+  complaint.statusHistory.push({
+    status: payload.status,
+    updatedBy: user.id,
+  });
+
   await complaint.save();
-  await complaint.populate(populateOptions);
+  await complaint.populate(detailPopulateOptions);
+  logger.info("Complaint status updated", {
+    complaintId: complaint._id.toString(),
+    previousStatus: complaint.statusHistory.at(-2)?.status || null,
+    status: complaint.status,
+    updatedBy: user.id.toString(),
+  });
 
   return formatComplaint(complaint);
 };
 
-const assignComplaint = async (complaintId, assignedOfficerId) => {
-  const complaint = await Complaint.findById(complaintId);
+const assignComplaint = async (complaintId, assignedOfficerId, user) => {
+  const complaint = await Complaint.findOne({ _id: complaintId, isDeleted: false });
 
   if (!complaint) {
     throw new AppError("Complaint not found", 404);
@@ -248,20 +301,41 @@ const assignComplaint = async (complaintId, assignedOfficerId) => {
 
   if (complaint.status === "Pending") {
     complaint.status = "In Progress";
+    complaint.statusHistory.push({
+      status: "In Progress",
+      updatedBy: user.id,
+    });
   }
 
   await complaint.save();
-  await complaint.populate(populateOptions);
+  await complaint.populate(detailPopulateOptions);
+  logger.info("Complaint assigned", {
+    complaintId: complaint._id.toString(),
+    assignedOfficerId: assignedOfficerId.toString(),
+    assignedBy: user.id.toString(),
+    status: complaint.status,
+  });
 
   return formatComplaint(complaint);
 };
 
-const deleteComplaint = async (complaintId) => {
-  const complaint = await Complaint.findByIdAndDelete(complaintId).populate(populateOptions);
+const deleteComplaint = async (complaintId, user) => {
+  const complaint = await Complaint.findOne({ _id: complaintId, isDeleted: false });
 
   if (!complaint) {
     throw new AppError("Complaint not found", 404);
   }
+
+  complaint.isDeleted = true;
+  complaint.deletedAt = new Date();
+  complaint.deletedBy = user.id;
+
+  await complaint.save();
+  await complaint.populate(detailPopulateOptions);
+  logger.warn("Complaint soft deleted", {
+    complaintId: complaint._id.toString(),
+    deletedBy: user.id.toString(),
+  });
 
   return formatComplaint(complaint);
 };

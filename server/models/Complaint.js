@@ -1,4 +1,27 @@
 const mongoose = require("mongoose");
+const { COMPLAINT_PRIORITIES, COMPLAINT_STATUSES, JURISDICTION_TYPES } = require("../config/constants");
+
+const statusHistorySchema = new mongoose.Schema(
+  {
+    status: {
+      type: String,
+      enum: COMPLAINT_STATUSES,
+      required: true,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  {
+    _id: false,
+  }
+);
 
 const complaintSchema = new mongoose.Schema(
   {
@@ -22,12 +45,12 @@ const complaintSchema = new mongoose.Schema(
     },
     priority: {
       type: String,
-      enum: ["Low", "Medium", "High", "Critical"],
+      enum: COMPLAINT_PRIORITIES,
       default: "Medium",
     },
     status: {
       type: String,
-      enum: ["Pending", "In Progress", "Resolved", "Rejected"],
+      enum: COMPLAINT_STATUSES,
       default: "Pending",
     },
     citizenId: {
@@ -64,6 +87,40 @@ const complaintSchema = new mongoose.Schema(
         default: null,
       },
     },
+    jurisdictionType: {
+      type: String,
+      enum: JURISDICTION_TYPES,
+      default: "Rural",
+      index: true,
+    },
+    escalationStatus: {
+      type: String,
+      enum: ["Normal", "Escalated"],
+      default: "Normal",
+      index: true,
+    },
+    escalatedAt: {
+      type: Date,
+      default: null,
+    },
+    statusHistory: {
+      type: [statusHistorySchema],
+      default: [],
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -72,7 +129,10 @@ const complaintSchema = new mongoose.Schema(
 
 complaintSchema.index({ status: 1 });
 complaintSchema.index({ priority: 1 });
+complaintSchema.index({ category: 1 });
 complaintSchema.index({ createdAt: -1 });
+complaintSchema.index({ citizenId: 1 });
+complaintSchema.index({ assignedOfficer: 1 });
 complaintSchema.index({ category: 1, status: 1, priority: 1 });
 complaintSchema.index({ title: "text", description: "text" });
 

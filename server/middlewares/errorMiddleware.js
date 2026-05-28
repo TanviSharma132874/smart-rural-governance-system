@@ -1,4 +1,5 @@
 const sendError = require("../utils/errorResponse");
+const logger = require("../utils/logger");
 
 const notFound = (req, _res, next) => {
   const error = new Error(`Route not found - ${req.originalUrl}`);
@@ -48,6 +49,14 @@ const errorHandler = (error, _req, res, _next) => {
 
   const statusCode = normalizedError.statusCode || 500;
   const message = normalizedError.message || "Internal server error";
+
+  logger.error(message, {
+    statusCode,
+    path: _req.originalUrl,
+    method: _req.method,
+    details: normalizedError.details || null,
+    stack: process.env.NODE_ENV === "production" ? null : normalizedError.stack,
+  });
 
   sendError(res, {
     statusCode,

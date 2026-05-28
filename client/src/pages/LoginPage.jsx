@@ -1,36 +1,44 @@
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "react-hot-toast";
 import { Navigate, useNavigate } from "react-router-dom";
 
 import FormField from "../components/common/FormField";
 import AuthLayout from "../layouts/AuthLayout";
 import { loginUser } from "../redux/slices/authSlice";
 import { useAppDispatch, useAppSelector } from "../redux/hooks";
+import { loginSchema } from "../utils/validationSchemas";
 
 function LoginPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { token, loading, error } = useAppSelector((state) => state.auth);
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
   });
 
   if (token) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const onSubmit = async (form) => {
     const result = await dispatch(loginUser(form));
 
     if (loginUser.fulfilled.match(result)) {
+      toast.success("Login successful.");
       navigate("/dashboard");
+      return;
     }
+
+    toast.error(result.payload || "Unable to log in.");
   };
 
   return (
@@ -41,14 +49,21 @@ function LoginPage() {
       footerLink="/register"
       footerLabel="Create one here"
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <FormField label="Email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="citizen@example.com" />
+      <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+        <FormField
+          label="Email"
+          name="email"
+          type="email"
+          registration={register("email")}
+          error={errors.email?.message}
+          placeholder="citizen@example.com"
+        />
         <FormField
           label="Password"
           name="password"
           type="password"
-          value={form.password}
-          onChange={handleChange}
+          registration={register("password")}
+          error={errors.password?.message}
           placeholder="Enter your password"
         />
 

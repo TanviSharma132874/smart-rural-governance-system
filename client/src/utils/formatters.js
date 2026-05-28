@@ -22,7 +22,9 @@ export const getRoleLabel = (role = "citizen") => {
     citizen: "Citizen",
     volunteer: "Volunteer",
     panchayatOfficer: "Panchayat Officer",
+    departmentOfficer: "Department Officer",
     districtAdmin: "District Admin",
+    stateAdmin: "State Admin",
     superAdmin: "Super Admin",
   };
 
@@ -74,4 +76,15 @@ export const getApiErrorMessage = (error) => {
   }
 
   return error.response?.data?.message || error.message || "Request failed.";
+};
+
+export const getCertificateStatusTone = (status = "Submitted") => {
+  const tones = {
+    Submitted: "bg-amber-100 text-amber-900",
+    "Under Review": "bg-sky-100 text-sky-900",
+    Approved: "bg-emerald-100 text-emerald-900",
+    Rejected: "bg-rose-100 text-rose-900",
+  };
+
+  return tones[status] || "bg-slate-100 text-slate-900";
 };

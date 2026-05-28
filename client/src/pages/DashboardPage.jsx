@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import DataTable from "../components/common/DataTable";
 import InfoCard from "../components/common/InfoCard";
 import LoaderPanel from "../components/common/LoaderPanel";
 import StatusBadge from "../components/common/StatusBadge";
@@ -110,23 +111,37 @@ function DashboardPage() {
             </Link>
           </div>
 
-          <div className="mt-5 space-y-4">
-            {recentComplaints.map((complaint) => (
-              <div key={complaint.id} className="rounded-[24px] border border-slate-200 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="font-display text-lg text-ink-950">{complaint.title}</p>
-                    <p className="mt-1 text-sm text-ink-800">
-                      {complaint.category} • {formatDate(complaint.createdAt)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <StatusBadge value={complaint.status} />
-                    <StatusBadge type="priority" value={complaint.priority} />
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="mt-5">
+            <DataTable
+              columns={[
+                {
+                  key: "title",
+                  label: "Complaint",
+                  render: (row) => (
+                    <div>
+                      <p className="font-semibold text-ink-950">{row.title}</p>
+                      <p className="mt-1 text-xs text-ink-800">{row.category}</p>
+                    </div>
+                  ),
+                },
+                {
+                  key: "status",
+                  label: "Workflow",
+                  render: (row) => (
+                    <div className="flex flex-wrap gap-2">
+                      <StatusBadge value={row.status} />
+                      <StatusBadge type="priority" value={row.priority} />
+                    </div>
+                  ),
+                },
+                {
+                  key: "createdAt",
+                  label: "Created",
+                  render: (row) => formatDate(row.createdAt),
+                },
+              ]}
+              rows={recentComplaints}
+            />
           </div>
         </article>
       </section>

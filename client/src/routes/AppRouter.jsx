@@ -1,6 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import DashboardLayout from "../layouts/DashboardLayout";
+import CertificateVerificationPage from "../pages/CertificateVerificationPage";
+import CertificatesPage from "../pages/CertificatesPage";
 import ComplaintPage from "../pages/ComplaintPage";
 import DashboardPage from "../pages/DashboardPage";
 import LoginPage from "../pages/LoginPage";
@@ -29,6 +31,7 @@ function AppRouter() {
             </PublicOnlyRoute>
           }
         />
+        <Route path="/verify/certificate/:id" element={<CertificateVerificationPage />} />
         <Route
           element={
             <ProtectedRoute>
@@ -39,6 +42,7 @@ function AppRouter() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/complaints" element={<ComplaintPage />} />
+          <Route path="/certificates" element={<CertificatesPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

@@ -1,8 +1,12 @@
 const { body, param, query } = require("express-validator");
+const {
+  COMPLAINT_CATEGORIES,
+  COMPLAINT_PRIORITIES,
+  COMPLAINT_SORT_OPTIONS,
+  COMPLAINT_STATUSES,
+  JURISDICTION_TYPES,
+} = require("../config/constants");
 
-const priorityValues = ["Low", "Medium", "High", "Critical"];
-const statusValues = ["Pending", "In Progress", "Resolved", "Rejected"];
-const sortValues = ["latest", "oldest", "priority"];
 const mongoIdMessage = "Must be a valid MongoDB ObjectId";
 
 const createComplaintValidator = [
@@ -26,8 +30,12 @@ const createComplaintValidator = [
     .withMessage("Complaint category cannot exceed 100 characters"),
   body("priority")
     .optional()
-    .isIn(priorityValues)
-    .withMessage(`Priority must be one of: ${priorityValues.join(", ")}`),
+    .isIn(COMPLAINT_PRIORITIES)
+    .withMessage(`Priority must be one of: ${COMPLAINT_PRIORITIES.join(", ")}`),
+  body("jurisdictionType")
+    .optional()
+    .isIn(JURISDICTION_TYPES)
+    .withMessage(`Jurisdiction type must be one of: ${JURISDICTION_TYPES.join(", ")}`),
   body("locationAddress").optional().trim().isString().withMessage("Location address must be a string"),
   body("landmark").optional().trim().isString().withMessage("Landmark must be a string"),
   body("latitude").optional().isFloat({ min: -90, max: 90 }).withMessage("Latitude must be a valid number"),
@@ -49,12 +57,12 @@ const getComplaintsValidator = [
     .toInt(),
   query("status")
     .optional()
-    .isIn(statusValues)
-    .withMessage(`Status must be one of: ${statusValues.join(", ")}`),
+    .isIn(COMPLAINT_STATUSES)
+    .withMessage(`Status must be one of: ${COMPLAINT_STATUSES.join(", ")}`),
   query("priority")
     .optional()
-    .isIn(priorityValues)
-    .withMessage(`Priority must be one of: ${priorityValues.join(", ")}`),
+    .isIn(COMPLAINT_PRIORITIES)
+    .withMessage(`Priority must be one of: ${COMPLAINT_PRIORITIES.join(", ")}`),
   query("category")
     .optional()
     .trim()
@@ -67,8 +75,12 @@ const getComplaintsValidator = [
     .withMessage("Search must be between 1 and 100 characters"),
   query("sort")
     .optional()
-    .isIn(sortValues)
-    .withMessage(`Sort must be one of: ${sortValues.join(", ")}`),
+    .isIn(COMPLAINT_SORT_OPTIONS)
+    .withMessage(`Sort must be one of: ${COMPLAINT_SORT_OPTIONS.join(", ")}`),
+  query("jurisdictionType")
+    .optional()
+    .isIn(JURISDICTION_TYPES)
+    .withMessage(`Jurisdiction type must be one of: ${JURISDICTION_TYPES.join(", ")}`),
 ];
 
 const updateComplaintStatusValidator = [
@@ -76,12 +88,12 @@ const updateComplaintStatusValidator = [
   body("status")
     .exists()
     .withMessage("Status is required")
-    .isIn(statusValues)
-    .withMessage(`Status must be one of: ${statusValues.join(", ")}`),
+    .isIn(COMPLAINT_STATUSES)
+    .withMessage(`Status must be one of: ${COMPLAINT_STATUSES.join(", ")}`),
   body("priority")
     .optional()
-    .isIn(priorityValues)
-    .withMessage(`Priority must be one of: ${priorityValues.join(", ")}`),
+    .isIn(COMPLAINT_PRIORITIES)
+    .withMessage(`Priority must be one of: ${COMPLAINT_PRIORITIES.join(", ")}`),
 ];
 
 const assignComplaintValidator = [
@@ -99,7 +111,8 @@ module.exports = {
   getComplaintsValidator,
   updateComplaintStatusValidator,
   assignComplaintValidator,
-  priorityValues,
-  statusValues,
-  sortValues,
+  priorityValues: COMPLAINT_PRIORITIES,
+  statusValues: COMPLAINT_STATUSES,
+  sortValues: COMPLAINT_SORT_OPTIONS,
+  complaintCategories: COMPLAINT_CATEGORIES,
 };

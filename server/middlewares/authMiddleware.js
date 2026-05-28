@@ -25,6 +25,14 @@ const authMiddleware = asyncHandler(async (req, _res, next) => {
       id: user._id,
       role: user.role,
       email: user.email,
+      name: user.name,
+      department: user.department,
+      jurisdictionType: user.jurisdictionType,
+      state: user.state,
+      district: user.district,
+      tehsil: user.tehsil,
+      village: user.village,
+      municipality: user.municipality,
     };
 
     next();

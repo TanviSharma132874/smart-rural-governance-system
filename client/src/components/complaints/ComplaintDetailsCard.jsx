@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { getAllowedTransitions, getPriorityLabel, getRelativeTime } from "../../utils/formatters";
+import BaseModal from "../common/BaseModal";
 import FormField from "../common/FormField";
 import StatusBadge from "../common/StatusBadge";
 
@@ -16,6 +17,7 @@ function ComplaintDetailsCard({
   const [nextStatus, setNextStatus] = useState("");
   const [nextPriority, setNextPriority] = useState("");
   const [assignedOfficer, setAssignedOfficer] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
   const transitions = useMemo(() => getAllowedTransitions(complaint?.status), [complaint?.status]);
 
   if (!complaint) {
@@ -48,6 +50,8 @@ function ComplaintDetailsCard({
     setAssignedOfficer("");
   };
 
+  const assetBaseUrl = (import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1").replace("/api/v1", "").replace("/api", "");
+
   return (
     <section className="glass-panel rounded-[32px] border border-white/70 bg-white/90 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -68,6 +72,13 @@ function ComplaintDetailsCard({
         <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-900">
           {getPriorityLabel(complaint.priority)} priority workflow
         </span>
+        <button
+          type="button"
+          onClick={() => setShowHistory(true)}
+          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-ink-900 transition hover:border-leaf-500 hover:text-leaf-600"
+        >
+          View audit trail
+        </button>
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -96,16 +107,12 @@ function ComplaintDetailsCard({
               {complaint.images.map((image) => (
                 <a
                   key={image}
-                  href={`${import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:5000"}${image}`}
+                  href={`${assetBaseUrl}${image}`}
                   target="_blank"
                   rel="noreferrer"
                   className="overflow-hidden rounded-2xl border border-slate-200"
                 >
-                  <img
-                    src={`${import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:5000"}${image}`}
-                    alt={complaint.title}
-                    className="h-28 w-full object-cover"
-                  />
+                  <img src={`${assetBaseUrl}${image}`} alt={complaint.title} className="h-28 w-full object-cover" />
                 </a>
               ))}
             </div>
@@ -190,6 +197,28 @@ function ComplaintDetailsCard({
           </div>
         </div>
       ) : null}
+
+      <BaseModal isOpen={showHistory} title="Complaint Audit Trail" onClose={() => setShowHistory(false)}>
+        <div className="space-y-3">
+          {(complaint.statusHistory || []).length ? (
+            complaint.statusHistory.map((entry, index) => (
+              <div key={`${entry.status}-${entry.updatedAt}-${index}`} className="rounded-[24px] border border-slate-200 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <StatusBadge value={entry.status} />
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-800">
+                    {getRelativeTime(entry.updatedAt)}
+                  </p>
+                </div>
+                <p className="mt-3 text-sm text-ink-900">
+                  Updated by: <span className="font-bold">{entry.updatedBy?.name || "System"}</span>
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-ink-800">No workflow history recorded yet.</p>
+          )}
+        </div>
+      </BaseModal>
     </section>
   );
 }

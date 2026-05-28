@@ -1,13 +1,12 @@
+import FilterBar from "../common/FilterBar";
 import FormField from "../common/FormField";
 
 function ComplaintFilters({ filters, onChange, onReset, pagination, isLoading }) {
   return (
-    <section className="glass-panel rounded-[32px] border border-white/70 bg-white/85 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-leaf-600">Query Controls</p>
-          <h2 className="mt-2 font-display text-2xl text-ink-950">Filter complaint traffic</h2>
-        </div>
+    <FilterBar
+      eyebrow="Query Controls"
+      title="Filter complaint traffic"
+      actions={
         <button
           type="button"
           onClick={onReset}
@@ -15,7 +14,8 @@ function ComplaintFilters({ filters, onChange, onReset, pagination, isLoading })
         >
           Reset Filters
         </button>
-      </div>
+      }
+    >
 
       <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <FormField label="Search" name="search" value={filters.search} onChange={onChange} placeholder="Search title or description" />
@@ -72,7 +72,7 @@ function ComplaintFilters({ filters, onChange, onReset, pagination, isLoading })
           {isLoading ? " • Refreshing..." : ""}
         </p>
       </div>
-    </section>
+    </FilterBar>
   );
 }
 

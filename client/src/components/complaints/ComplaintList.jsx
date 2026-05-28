@@ -1,4 +1,5 @@
 import EmptyState from "../common/EmptyState";
+import PaginationControls from "../common/PaginationControls";
 import StatusBadge from "../common/StatusBadge";
 import { formatDate, getRelativeTime } from "../../utils/formatters";
 
@@ -62,24 +63,7 @@ function ComplaintList({ complaints, selectedId, onSelect, pagination, page, onP
           Page <span className="font-bold text-ink-950">{pagination.page || 1}</span> of{" "}
           <span className="font-bold text-ink-950">{pagination.totalPages || 0}</span>
         </p>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => onPageChange(page - 1)}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-ink-900 transition hover:border-leaf-500 hover:text-leaf-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <button
-            type="button"
-            disabled={page >= (pagination.totalPages || 1)}
-            onClick={() => onPageChange(page + 1)}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-ink-900 transition hover:border-leaf-500 hover:text-leaf-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
+        <PaginationControls page={page} totalPages={pagination.totalPages || 0} onPageChange={onPageChange} />
       </div>
     </section>
   );

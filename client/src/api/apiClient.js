@@ -1,9 +1,10 @@
 import axios from "axios";
 
 import { getStoredToken } from "../utils/storage";
+import { API_BASE_URL } from "../utils/constants";
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },

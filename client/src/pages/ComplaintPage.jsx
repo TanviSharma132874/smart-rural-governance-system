@@ -1,12 +1,13 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { toast } from "react-hot-toast";
 
 import ComplaintComposer from "../components/complaints/ComplaintComposer";
 import ComplaintDetailsCard from "../components/complaints/ComplaintDetailsCard";
 import ComplaintFilters from "../components/complaints/ComplaintFilters";
 import ComplaintList from "../components/complaints/ComplaintList";
 import LoaderPanel from "../components/common/LoaderPanel";
-import complaintService from "../services/complaintService";
 import { useAppSelector } from "../redux/hooks";
+import complaintService from "../services/complaintService";
 import { getApiErrorMessage } from "../utils/formatters";
 
 const initialFilters = {
@@ -48,7 +49,9 @@ function ComplaintPage() {
       const response = await complaintService.getComplaintById(complaintId);
       setSelectedComplaint(response.complaint);
     } catch (error) {
-      setPageError(getApiErrorMessage(error));
+      const message = getApiErrorMessage(error);
+      setPageError(message);
+      toast.error(message);
     }
   }, []);
 
@@ -68,7 +71,9 @@ function ComplaintPage() {
         setSelectedComplaint(null);
       }
     } catch (error) {
-      setPageError(getApiErrorMessage(error));
+      const message = getApiErrorMessage(error);
+      setPageError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -93,7 +98,9 @@ function ComplaintPage() {
       await action();
       await refreshComplaints(query, selectedComplaint?.id);
     } catch (error) {
-      setPageError(getApiErrorMessage(error));
+      const message = getApiErrorMessage(error);
+      setPageError(message);
+      toast.error(message);
       throw error;
     } finally {
       setBusy(false);
@@ -120,7 +127,16 @@ function ComplaintPage() {
         </div>
       ) : null}
 
-      {!canManage ? <ComplaintComposer onSubmit={(payload) => runBusyAction(() => complaintService.createComplaint(payload))} isSubmitting={busy} /> : null}
+      {!canManage ? (
+        <ComplaintComposer
+          onSubmit={(payload) =>
+            runBusyAction(async () => {
+              await complaintService.createComplaint(payload);
+            })
+          }
+          isSubmitting={busy}
+        />
+      ) : null}
 
       <ComplaintFilters
         filters={filters}
@@ -150,10 +166,23 @@ function ComplaintPage() {
             currentUser={user}
             canManage={canManage}
             isBusy={busy}
-            onStatusUpdate={(complaintId, payload) => runBusyAction(() => complaintService.updateComplaintStatus(complaintId, payload))}
-            onAssignToSelf={(complaintId) => runBusyAction(() => complaintService.assignComplaint(complaintId, { assignedOfficer: user.id }))}
+            onStatusUpdate={(complaintId, payload) =>
+              runBusyAction(async () => {
+                await complaintService.updateComplaintStatus(complaintId, payload);
+                toast.success("Complaint workflow updated.");
+              })
+            }
+            onAssignToSelf={(complaintId) =>
+              runBusyAction(async () => {
+                await complaintService.assignComplaint(complaintId, { assignedOfficer: user.id });
+                toast.success("Complaint assigned to your queue.");
+              })
+            }
             onAssignToOfficer={(complaintId, assignedOfficer) =>
-              runBusyAction(() => complaintService.assignComplaint(complaintId, { assignedOfficer }))
+              runBusyAction(async () => {
+                await complaintService.assignComplaint(complaintId, { assignedOfficer });
+                toast.success("Complaint assigned successfully.");
+              })
             }
           />
         </div>

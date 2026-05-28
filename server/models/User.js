@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const { GOVERNMENT_DEPARTMENTS, JURISDICTION_TYPES, USER_ROLES } = require("../config/constants");
 
 const userSchema = new mongoose.Schema(
   {
@@ -25,22 +26,49 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["citizen", "volunteer", "panchayatOfficer", "districtAdmin", "superAdmin"],
+      enum: USER_ROLES,
       default: "citizen",
+    },
+    department: {
+      type: String,
+      enum: [...GOVERNMENT_DEPARTMENTS, ""],
+      default: "",
+      trim: true,
+    },
+    jurisdictionType: {
+      type: String,
+      enum: JURISDICTION_TYPES,
+      default: "Rural",
+    },
+    state: {
+      type: String,
+      required: [true, "State is required"],
+      trim: true,
+      default: "Rajasthan",
     },
     phone: {
       type: String,
       required: [true, "Phone number is required"],
       trim: true,
     },
+    tehsil: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     village: {
       type: String,
-      required: [true, "Village is required"],
+      default: "",
       trim: true,
     },
     district: {
       type: String,
       required: [true, "District is required"],
+      trim: true,
+    },
+    municipality: {
+      type: String,
+      default: "",
       trim: true,
     },
     profileImage: {
@@ -52,6 +80,22 @@ const userSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+userSchema.path("village").validate(function validateVillage(value) {
+  if (this.jurisdictionType === "Rural" && !value) {
+    return false;
+  }
+
+  return true;
+}, "Village is required for rural jurisdiction");
+
+userSchema.path("municipality").validate(function validateMunicipality(value) {
+  if (this.jurisdictionType === "Urban" && !value) {
+    return false;
+  }
+
+  return true;
+}, "Municipality is required for urban jurisdiction");
 
 userSchema.pre("save", async function save(next) {
   if (!this.isModified("password")) {
