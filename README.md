@@ -1,11 +1,12 @@
 # Smart Rural Governance & Emergency Management System
 
-This project models two connected public-service workflows:
+Workflow-driven governance and emergency operations platform for complaint handling, certificate processing, and administrative coordination.
 
-1. Governance services for complaints and certificate processing.
-2. Emergency services for SOS alerts, coordination, and field response.
+## Problem Statement
 
-The system is built around role-based access, official review, document generation, and live status tracking.
+Many public-service processes still depend on fragmented manual workflows, delayed approvals, limited visibility, and poor coordination between citizens and officials.
+
+This project simulates a structured digital governance system that focuses on workflow engineering, accountability, and role-based operations rather than simple CRUD screens.
 
 ## Project Details
 
@@ -14,100 +15,133 @@ The application is organized around these user roles:
 - Citizen: files complaints, applies for certificates, and tracks progress.
 - Panchayat Officer: reviews incoming cases and verifies submissions.
 - District Admin: escalates cases, assigns work, and closes service loops.
-- Volunteer / Field Team: receives emergency assignments and updates live progress.
+- Volunteer / Field Team: receives assignments and updates live progress.
 
 The main functional areas are:
 
-- Complaint intake with supporting details, attachments, and location context.
+- Complaint intake with attachments and location context.
 - Certificate processing with document upload, verification, approval, and PDF download.
-- Emergency handling with alert broadcast, resource allocation, volunteer assignment, and live tracking.
-- Dashboard-based visibility for officers and citizens.
+- Administrative review queues for officers and admins.
+- Live tracking for status updates and task progress.
 
-## Project Flow
+## Screenshots
 
-### Governance Flow
+The shared workflow screenshot is the primary visual reference for this project.
 
-1. The citizen starts at the authentication service and enters the protected dashboard flow.
-2. For complaints, the citizen submits the form from the React frontend.
-3. The API stores the complaint, and the officer dashboard reflects the new case.
-4. The panchayat officer reviews the complaint, then assigns work or updates progress.
-5. The district admin can intervene, reassign the case, and mark it resolved.
-6. For certificates, the citizen submits documents for review.
-7. If approved, the system generates a PDF certificate with QR-based verification and the citizen downloads it.
+## Features
 
-### Emergency Flow
+### Complaint Management
 
-1. The citizen triggers an SOS alert from the emergency entry point.
-2. The emergency engine pushes the alert through the real-time socket layer.
-3. Admins and volunteers receive the broadcast and open the emergency dashboard.
-4. The district admin allocates resources and assigns a volunteer.
-5. The volunteer accepts the task, tracks the location, and updates progress.
-6. Once handled, the emergency is marked resolved and the citizen can track the outcome.
+- Complaint creation and tracking
+- Officer assignment workflows
+- Status lifecycle management
+- Location-aware case handling
+- Search and filtering on the complaint queue
 
-## Flow Chart
+### Certificate Governance System
 
-```mermaid
-flowchart LR
-		A[Start: Citizen / User Access] --> B[Authentication Service\nJWT + RBAC]
+- Certificate application workflows
+- Department-based authorization
+- Officer verification queues
+- Signed PDF generation
+- QR-based certificate verification
+- Audit history tracking
 
-		B --> C[Governance Path]
-		B --> D[Emergency Path]
+### Authentication and Security
 
-		subgraph G1[Citizen]
-			C1[File Complaint] --> C2[Submit via React Frontend]
-			C3[Apply for Certificate] --> C4[Submit Documents]
-			D1[Emergency SOS] --> D2[Trigger Emergency Engine]
-		end
+- JWT authentication
+- Role-based access control
+- Protected APIs
+- Validation middleware
+- Request guarding for sensitive actions
 
-		subgraph G2[Panchayat Officer]
-			P1[Complaint Review] --> P2[Assign Worker / Update Progress]
-			P3[Certificate Verification] --> P4[Approve / Reject]
-		end
+### System Architecture
 
-		subgraph G3[District Admin]
-			D3[Officer Dashboard] --> D4[Resource Allocation]
-			D5[Assign Volunteer] --> D6[Update Progress]
-		end
+- Service-layer architecture
+- Centralized error handling
+- Structured logging
+- Reusable validation schemas
+- Document generation for approvals
 
-		subgraph G4[Volunteer]
-			V1[Volunteer Dashboard] --> V2[Accept Task / Live Tracking]
-		end
+## Tech Stack
 
-		C2 --> S1[API Gateway\nNode / Express]
-		S1 --> S2[Store Complaint / Queue Case]
-		S2 --> P1
-		P2 --> S3[Status Resolved]
-		S3 --> S4[Citizen Notified / View Dashboard]
+### Frontend
 
-		C4 --> P3
-		P4 --> S5[Generate PDF Certificate\nQR Code / Digital Signature]
-		S5 --> S6[Citizen Download]
+- React
+- Redux Toolkit
+- Axios
+- React Hook Form
+- Tailwind CSS
 
-		D2 --> S7[Real-Time Socket Server\nSocket.IO]
-		S7 --> S8[Alert Broadcast to Admins / Volunteers]
-		S8 --> D3
-		D4 --> D5
-		D5 --> V1
-		V2 --> D6
-		D6 --> S9[Emergency Resolved]
-		S9 --> S10[Citizen Tracks Progress]
-```
+### Backend
 
-## Key Outputs
+- Node.js
+- Express.js
+- MongoDB Atlas
+- JWT authentication
+- Multer
 
-- Complaint records with attachments, categories, and progress history.
-- Certificate PDFs with verification codes for public validation.
-- Role-specific dashboards for citizens, officers, admins, and volunteers.
-- Real-time response handling for urgent alerts and task assignment.
+### Architecture and Tooling
+
+- REST APIs
+- RBAC
+- Zod validation
+- Audit logging
+- PDF and QR generation
+
+## Governance Workflow
+
+Citizen access -> authentication -> dashboard access -> complaint or certificate submission -> officer review -> approval or assignment -> PDF or status update -> citizen tracking.
+
+## Emergency Workflow
+
+Citizen access -> SOS trigger -> real-time alert broadcast -> admin coordination -> resource allocation -> volunteer assignment -> live progress update -> emergency resolved.
 
 ## Project Structure
 
-- `client/` - user-facing application, role dashboards, complaint and certificate screens
-- `server/` - API, review logic, document generation, and status handling
+- client/
+  - src/
+    - pages/
+    - components/
+    - redux/
+    - services/
+    - layouts/
+- server/
+  - controllers/
+  - services/
+  - models/
+  - routes/
+  - middlewares/
+  - validators/
+  - utils/
 
-## Run Locally
+## Sample API Routes
 
-### Backend
+### Complaint APIs
+
+- `POST /api/complaints`
+- `GET /api/complaints`
+- `PATCH /api/complaints/:id/status`
+- `PATCH /api/complaints/:id/assign`
+
+### Certificate APIs
+
+- `POST /api/certificates/apply`
+- `GET /api/certificates/:id`
+- `GET /api/certificates/verify/:id`
+- `PATCH /api/certificates/:id/review`
+- `PATCH /api/certificates/:id/status`
+- `GET /api/certificates/download/:id`
+
+## Installation
+
+### Clone Repository
+
+```bash
+git clone <repo-url>
+```
+
+### Backend Setup
 
 ```bash
 cd server
@@ -115,7 +149,7 @@ npm install
 npm run dev
 ```
 
-### Frontend
+### Frontend Setup
 
 ```bash
 cd client
@@ -123,7 +157,38 @@ npm install
 npm run dev
 ```
 
+## Environment Variables
+
+Create a `.env` file inside `server/`:
+
+```env
+PORT=
+MONGODB_URI=
+JWT_SECRET=
+CLIENT_URL=
+```
+
 ## Notes
 
 - Add the required environment variables in `server/` before starting the backend.
 - Run frontend and backend in separate terminals during development.
+
+## Future Enhancements
+
+- Emergency SOS workflows
+- Resource allocation engine
+- Real-time notifications
+- GIS-based jurisdiction mapping
+- Multi-language support
+
+## Engineering Focus
+
+This project was built to explore workflow-driven backend architecture, access control, auditability, and real-world administrative processes.
+
+## Author
+
+Tanvi Sharma
+
+## License
+
+This project is licensed under the MIT License.
