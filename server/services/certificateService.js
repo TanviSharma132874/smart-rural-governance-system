@@ -15,6 +15,9 @@ const CERTIFICATE_TRANSITIONS = {
   Approved: [],
   Rejected: [],
 };
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 50;
 
 const listPopulateOptions = [
   { path: "applicant", select: "name email phone role department jurisdictionType state district tehsil village municipality" },
@@ -78,6 +81,13 @@ const formatCertificate = (certificate) => ({
   })),
   createdAt: certificate.createdAt,
   updatedAt: certificate.updatedAt,
+});
+
+const buildPagination = (page, limit, totalItems, key = "totalItems") => ({
+  page,
+  limit,
+  totalPages: totalItems === 0 ? 0 : Math.ceil(totalItems / limit),
+  [key]: totalItems,
 });
 
 const nextApplicationNumber = async () => {
@@ -187,6 +197,54 @@ const ensureDepartmentAccess = (user, certificateType, department) => {
 };
 
 const normalizeDocuments = (files = []) => files.map((file) => `/uploads/certificates/${file.filename}`);
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalizeListOptions = (filters = {}) => {
+  const page = Math.max(Number.parseInt(filters.page, 10) || DEFAULT_PAGE, 1);
+  const requestedLimit = Number.parseInt(filters.limit, 10) || DEFAULT_LIMIT;
+  const limit = Math.min(Math.max(requestedLimit, 1), MAX_LIMIT);
+  const search = typeof filters.search === "string" ? filters.search.trim() : "";
+  const status = typeof filters.status === "string" ? filters.status.trim() : "";
+  const certificateType = typeof filters.certificateType === "string" ? filters.certificateType.trim() : "";
+  const department = typeof filters.department === "string" ? filters.department.trim() : "";
+  const sort = filters.sort === "oldest" ? "oldest" : "latest";
+
+  return {
+    page,
+    limit,
+    skip: (page - 1) * limit,
+    search,
+    status,
+    certificateType,
+    department,
+    sort,
+  };
+};
+
+const addListFiltersToQuery = (query, options) => {
+  if (options.status) {
+    query.status = options.status;
+  }
+
+  if (options.certificateType) {
+    query.certificateType = options.certificateType;
+  }
+
+  if (options.department) {
+    query.department = options.department;
+  }
+
+  if (options.search) {
+    const searchRegex = new RegExp(escapeRegex(options.search), "i");
+    query.$or = [
+      { applicationNumber: searchRegex },
+      { certificateType: searchRegex },
+      { remarks: searchRegex },
+    ];
+  }
+
+  return query;
+};
 
 const createHistoryEntry = ({ status, action, remarks, department, userId }) => ({
   status,
@@ -228,16 +286,34 @@ const applyCertificate = async (payload, user, files = []) => {
   return formatCertificate(certificate);
 };
 
-const getMyApplications = async (user) => {
-  const certificates = await Certificate.find({ applicant: user.id, isDeleted: false })
-    .populate(listPopulateOptions)
-    .sort({ createdAt: -1 })
-    .lean();
+const getMyApplications = async (user, filters = {}) => {
+  const options = normalizeListOptions(filters);
+  const query = addListFiltersToQuery(
+    {
+      applicant: user.id,
+      isDeleted: false,
+    },
+    options
+  );
 
-  return certificates.map(formatCertificate);
+  const [totalApplications, certificates] = await Promise.all([
+    Certificate.countDocuments(query),
+    Certificate.find(query)
+      .populate(listPopulateOptions)
+      .sort({ createdAt: options.sort === "oldest" ? 1 : -1 })
+      .skip(options.skip)
+      .limit(options.limit)
+      .lean(),
+  ]);
+
+  return {
+    certificates: certificates.map(formatCertificate),
+    pagination: buildPagination(options.page, options.limit, totalApplications, "totalApplications"),
+  };
 };
 
 const getDepartmentQueue = async (user, filters = {}) => {
+  const options = normalizeListOptions(filters);
   const query = {
     isDeleted: false,
     ...buildJurisdictionQuery(user),
@@ -247,24 +323,22 @@ const getDepartmentQueue = async (user, filters = {}) => {
     query.department = user.department;
   }
 
-  if (filters.status) {
-    query.status = filters.status;
-  }
+  addListFiltersToQuery(query, options);
 
-  if (filters.certificateType) {
-    query.certificateType = filters.certificateType;
-  }
+  const [totalCertificates, certificates] = await Promise.all([
+    Certificate.countDocuments(query),
+    Certificate.find(query)
+      .populate(listPopulateOptions)
+      .sort({ createdAt: options.sort === "oldest" ? 1 : -1 })
+      .skip(options.skip)
+      .limit(options.limit)
+      .lean(),
+  ]);
 
-  if (filters.department) {
-    query.department = filters.department;
-  }
-
-  const certificates = await Certificate.find(query)
-    .populate(listPopulateOptions)
-    .sort({ createdAt: -1 })
-    .lean();
-
-  return certificates.map(formatCertificate);
+  return {
+    certificates: certificates.map(formatCertificate),
+    pagination: buildPagination(options.page, options.limit, totalCertificates, "totalCertificates"),
+  };
 };
 
 const getCertificateById = async (certificateId, user) => {
@@ -370,6 +444,13 @@ const updateCertificateStatus = async (certificateId, payload, user) => {
     certificate.verificationUrl = verificationAssets.verificationUrl;
     certificate.digitalSignature = `${user.name || "Officer"} (${user.department || certificate.department})`;
     certificate.departmentSeal = `${certificate.department} Official Seal`;
+  } else {
+    certificate.approvedBy = undefined;
+    certificate.issuedAt = undefined;
+    certificate.qrCode = "";
+    certificate.verificationUrl = "";
+    certificate.digitalSignature = "";
+    certificate.departmentSeal = "";
   }
 
   await certificate.save();

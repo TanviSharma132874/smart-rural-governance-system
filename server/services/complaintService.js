@@ -20,6 +20,7 @@ const PRIORITY_SORT_ORDER = {
   Medium: 2,
   Low: 1,
 };
+const ESCALATION_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
 
 const listPopulateOptions = [
   { path: "citizenId", select: "name email phone role village district" },
@@ -96,6 +97,46 @@ const normalizeLocation = (payload = {}) => {
 
 const normalizeImages = (files = []) => files.map((file) => `/uploads/complaints/${file.filename}`);
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const shouldEscalateComplaint = (complaint) =>
+  complaint &&
+  complaint.escalationStatus !== "Escalated" &&
+  !["Resolved", "Rejected"].includes(complaint.status) &&
+  Date.now() - new Date(complaint.createdAt).getTime() >= ESCALATION_THRESHOLD_MS;
+
+const persistEscalation = async (complaintId) => {
+  const escalatedComplaint = await Complaint.findOneAndUpdate(
+    {
+      _id: complaintId,
+      isDeleted: false,
+      escalationStatus: { $ne: "Escalated" },
+      status: { $nin: ["Resolved", "Rejected"] },
+    },
+    {
+      $set: {
+        escalationStatus: "Escalated",
+        escalatedAt: new Date(),
+      },
+    },
+    { new: true }
+  );
+
+  if (escalatedComplaint) {
+    logger.warn("Complaint escalated to district oversight", {
+      complaintId: escalatedComplaint._id.toString(),
+      escalatedAt: escalatedComplaint.escalatedAt?.toISOString(),
+    });
+  }
+};
+
+const persistEscalationsForRecords = async (complaints = []) => {
+  const complaintsToEscalate = complaints.filter(shouldEscalateComplaint);
+
+  if (complaintsToEscalate.length === 0) {
+    return;
+  }
+
+  await Promise.all(complaintsToEscalate.map((complaint) => persistEscalation(complaint._id)));
+};
 
 const buildComplaintQuery = (user, filters = {}) => {
   const query = {
@@ -227,6 +268,8 @@ const getComplaints = async (user, filters = {}) => {
           .lean(),
   ]);
 
+  await persistEscalationsForRecords(complaints);
+
   return {
     complaints: complaints.map(formatComplaint),
     pagination: buildPagination(page, limit, totalComplaints),
@@ -247,6 +290,12 @@ const getComplaintById = async (complaintId, user) => {
     throw new AppError("You are not authorized to view this complaint", 403);
   }
 
+  if (shouldEscalateComplaint(complaint)) {
+    await persistEscalation(complaint._id);
+    complaint.escalationStatus = "Escalated";
+    complaint.escalatedAt = new Date();
+  }
+
   return formatComplaint(complaint);
 };
 
@@ -262,6 +311,10 @@ const updateComplaintStatus = async (complaintId, payload, user) => {
   }
 
   complaint.status = payload.status;
+  if (["Resolved", "Rejected"].includes(payload.status)) {
+    complaint.escalationStatus = "Not Escalated";
+    complaint.escalatedAt = null;
+  }
 
   if (payload.priority) {
     complaint.priority = payload.priority;

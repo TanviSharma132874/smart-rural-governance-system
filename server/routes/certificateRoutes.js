@@ -31,7 +31,13 @@ router.post(
   enforceJurisdictionPayload,
   certificateController.applyCertificate
 );
-router.get("/my-applications", authorize("citizen"), certificateController.getMyApplications);
+router.get(
+  "/my-applications",
+  authorize("citizen"),
+  queueQueryValidator,
+  validateRequest,
+  certificateController.getMyApplications
+);
 router.get(
   "/department-queue",
   authorize("departmentOfficer", "panchayatOfficer", "districtAdmin", "stateAdmin", "superAdmin"),

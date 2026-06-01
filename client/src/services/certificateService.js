@@ -11,8 +11,8 @@ const certificateService = {
     return response.data.data;
   },
 
-  async getMyApplications() {
-    const response = await apiClient.get("/certificates/my-applications");
+  async getMyApplications(params = {}) {
+    const response = await apiClient.get("/certificates/my-applications", { params });
     return response.data.data;
   },
 

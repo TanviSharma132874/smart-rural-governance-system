@@ -10,10 +10,11 @@ import VerificationBadge from "../components/certificates/VerificationBadge";
 import DataTable from "../components/common/DataTable";
 import FormField from "../components/common/FormField";
 import LoaderPanel from "../components/common/LoaderPanel";
+import PaginationControls from "../components/common/PaginationControls";
 import StatusBadge from "../components/common/StatusBadge";
 import { useAppSelector } from "../redux/hooks";
 import certificateService from "../services/certificateService";
-import { CERTIFICATE_STATUSES } from "../utils/constants";
+import { CERTIFICATE_STATUSES, CERTIFICATE_TYPES } from "../utils/constants";
 import { getApiErrorMessage } from "../utils/formatters";
 
 function CertificatesPage() {
@@ -26,11 +27,31 @@ function CertificatesPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [certificateTypeFilter, setCertificateTypeFilter] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 8,
+    totalPages: 0,
+    totalApplications: 0,
+    totalCertificates: 0,
+  });
   const [documentPreview, setDocumentPreview] = useState("");
   const [pdfPreview, setPdfPreview] = useState("");
   const [remarks, setRemarks] = useState("");
 
-  const queueParams = useMemo(() => (statusFilter ? { status: statusFilter } : {}), [statusFilter]);
+  const queueParams = useMemo(
+    () => ({
+      page,
+      limit: 8,
+      sort: "latest",
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(certificateTypeFilter ? { certificateType: certificateTypeFilter } : {}),
+      ...(searchTerm ? { search: searchTerm } : {}),
+    }),
+    [certificateTypeFilter, page, searchTerm, statusFilter]
+  );
   const assetBaseUrl = (import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1").replace("/api/v1", "").replace("/api", "");
 
   const loadCertificateDetail = async (id) => {
@@ -51,13 +72,17 @@ function CertificatesPage() {
 
     try {
       const response = isCitizen
-        ? await certificateService.getMyApplications()
+        ? await certificateService.getMyApplications(queueParams)
         : await certificateService.getDepartmentQueue(queueParams);
       const certificates = response.certificates || [];
       setRecords(certificates);
+      setPagination(response.pagination || { page: 1, limit: 8, totalPages: 0 });
 
-      if (certificates[0]) {
-        await loadCertificateDetail(selectedCertificate?.id || certificates[0].id);
+      const selectedId = selectedCertificate?.id;
+      const nextSelected = selectedId && certificates.some((item) => item.id === selectedId) ? selectedId : certificates[0]?.id;
+
+      if (nextSelected) {
+        await loadCertificateDetail(nextSelected);
       } else {
         setSelectedCertificate(null);
       }
@@ -68,6 +93,21 @@ function CertificatesPage() {
       setLoading(false);
     }
   }, [isCitizen, queueParams, selectedCertificate?.id]);
+
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
+  const handleCertificateTypeFilterChange = (value) => {
+    setCertificateTypeFilter(value);
+    setPage(1);
+  };
+
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    setPage(1);
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -129,15 +169,47 @@ function CertificatesPage() {
       {error ? <div className="rounded-[28px] bg-alert-100 px-5 py-4 text-sm font-medium text-alert-500">{error}</div> : null}
 
       {isCitizen ? (
-        <CertificateApplyForm
-          currentUser={user}
-          isSubmitting={busy}
-          onSubmit={(payload) =>
-            runBusyAction(async () => {
-              await certificateService.apply(payload);
-            })
-          }
-        />
+        <div className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
+          <CertificateApplyForm
+            currentUser={user}
+            isSubmitting={busy}
+            onSubmit={(payload) =>
+              runBusyAction(async () => {
+                await certificateService.apply(payload);
+                setPage(1);
+              })
+            }
+          />
+          <section className="glass-panel rounded-[32px] border border-white/70 bg-white/92 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-leaf-600">Track Applications</p>
+            <h2 className="mt-2 font-display text-2xl text-ink-950">Search and monitor certificate requests</h2>
+            <div className="mt-5 grid gap-4">
+              <FormField
+                label="Search"
+                name="search"
+                value={searchTerm}
+                onChange={(event) => handleSearchChange(event.target.value)}
+                placeholder="Search by application number or certificate type"
+              />
+              <FormField
+                label="Status Filter"
+                name="statusFilter"
+                as="select"
+                value={statusFilter}
+                onChange={(event) => handleStatusFilterChange(event.target.value)}
+                options={[{ value: "", label: "All statuses" }, ...CERTIFICATE_STATUSES.map((item) => ({ value: item, label: item }))]}
+              />
+              <FormField
+                label="Certificate Type"
+                name="certificateTypeFilter"
+                as="select"
+                value={certificateTypeFilter}
+                onChange={(event) => handleCertificateTypeFilterChange(event.target.value)}
+                options={[{ value: "", label: "All certificate types" }, ...CERTIFICATE_TYPES.map((item) => ({ value: item, label: item }))]}
+              />
+            </div>
+          </section>
+        </div>
       ) : (
         <section className="glass-panel rounded-[32px] border border-white/70 bg-white/92 p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -145,14 +217,29 @@ function CertificatesPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-leaf-600">Department Queue</p>
               <h2 className="mt-2 font-display text-2xl text-ink-950">Operational certificate filters</h2>
             </div>
-            <div className="w-full max-w-xs">
+            <div className="grid w-full gap-4 md:max-w-3xl md:grid-cols-3">
+              <FormField
+                label="Search"
+                name="search"
+                value={searchTerm}
+                onChange={(event) => handleSearchChange(event.target.value)}
+                placeholder="Search by application number"
+              />
               <FormField
                 label="Status Filter"
                 name="statusFilter"
                 as="select"
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
+                onChange={(event) => handleStatusFilterChange(event.target.value)}
                 options={[{ value: "", label: "All statuses" }, ...CERTIFICATE_STATUSES.map((item) => ({ value: item, label: item }))]}
+              />
+              <FormField
+                label="Certificate Type"
+                name="certificateTypeFilter"
+                as="select"
+                value={certificateTypeFilter}
+                onChange={(event) => handleCertificateTypeFilterChange(event.target.value)}
+                options={[{ value: "", label: "All certificate types" }, ...CERTIFICATE_TYPES.map((item) => ({ value: item, label: item }))]}
               />
             </div>
           </div>
@@ -164,6 +251,14 @@ function CertificatesPage() {
       ) : (
         <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
           <section className="space-y-4">
+            <div className="flex items-center justify-between gap-4 rounded-[24px] bg-white/70 px-4 py-3 text-sm text-ink-800">
+              <p>
+                {isCitizen
+                  ? `${pagination.totalApplications || 0} applications found`
+                  : `${pagination.totalCertificates || 0} certificates in queue`}
+              </p>
+              <PaginationControls page={pagination.page || page} totalPages={pagination.totalPages || 1} onPageChange={setPage} />
+            </div>
             {isCitizen ? (
               <DataTable
                 columns={[

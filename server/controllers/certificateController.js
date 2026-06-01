@@ -13,22 +13,24 @@ const applyCertificate = asyncHandler(async (req, res) => {
 });
 
 const getMyApplications = asyncHandler(async (req, res) => {
-  const certificates = await certificateService.getMyApplications(req.user);
+  const { certificates, pagination } = await certificateService.getMyApplications(req.user, req.query);
 
   sendSuccess(res, {
     statusCode: 200,
     message: "Certificate applications fetched successfully",
     data: { certificates },
+    pagination,
   });
 });
 
 const getDepartmentQueue = asyncHandler(async (req, res) => {
-  const certificates = await certificateService.getDepartmentQueue(req.user, req.query);
+  const { certificates, pagination } = await certificateService.getDepartmentQueue(req.user, req.query);
 
   sendSuccess(res, {
     statusCode: 200,
     message: "Department queue fetched successfully",
     data: { certificates },
+    pagination,
   });
 });
 
