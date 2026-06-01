@@ -37,6 +37,19 @@ export const getStatusTone = (status = "Pending") => {
     "In Progress": "bg-sky-100 text-sky-900",
     Resolved: "bg-emerald-100 text-emerald-900",
     Rejected: "bg-rose-100 text-rose-900",
+    Submitted: "bg-amber-100 text-amber-900",
+    Acknowledged: "bg-indigo-100 text-indigo-900",
+    Assigned: "bg-cyan-100 text-cyan-900",
+    Closed: "bg-slate-200 text-slate-900",
+    Available: "bg-emerald-100 text-emerald-900",
+    "Low Stock": "bg-amber-100 text-amber-900",
+    Depleted: "bg-rose-100 text-rose-900",
+    Maintenance: "bg-slate-200 text-slate-900",
+    Approved: "bg-emerald-100 text-emerald-900",
+    Draft: "bg-slate-200 text-slate-900",
+    Published: "bg-emerald-100 text-emerald-900",
+    Archived: "bg-slate-200 text-slate-900",
+    Unavailable: "bg-slate-200 text-slate-900",
   };
 
   return tones[status] || "bg-slate-100 text-slate-900";
@@ -87,4 +100,17 @@ export const getCertificateStatusTone = (status = "Submitted") => {
   };
 
   return tones[status] || "bg-slate-100 text-slate-900";
+};
+
+export const getEmergencyAllowedTransitions = (status) => {
+  const transitions = {
+    Submitted: ["Acknowledged"],
+    Acknowledged: ["Assigned"],
+    Assigned: ["In Progress"],
+    "In Progress": ["Resolved"],
+    Resolved: ["Closed"],
+    Closed: [],
+  };
+
+  return transitions[status] || [];
 };

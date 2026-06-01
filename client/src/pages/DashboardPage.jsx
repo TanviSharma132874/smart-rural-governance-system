@@ -89,12 +89,20 @@ function DashboardPage() {
                   : "Raise a new issue, attach evidence, and watch progress without leaving the dashboard shell."}
               </p>
             </Link>
+            <Link to="/emergencies" className="block rounded-[24px] border border-slate-200 p-4 transition hover:border-alert-500 hover:bg-rose-50">
+              <p className="font-display text-lg text-ink-950">{isOfficer ? "Open emergency operations" : "Raise or track SOS requests"}</p>
+              <p className="mt-2 text-sm leading-6 text-ink-800">
+                {isOfficer
+                  ? "Coordinate incidents, route resources, and assign volunteers through the live emergency workspace."
+                  : "Submit emergency alerts with location details and monitor the official response chain."}
+              </p>
+            </Link>
             <div className="rounded-[24px] border border-slate-200 p-4">
               <p className="font-display text-lg text-ink-950">Current foundation status</p>
               <ul className="mt-3 space-y-2 text-sm leading-6 text-ink-800">
                 <li>Authentication UI is connected to your backend JWT flow.</li>
                 <li>Protected routes are role-aware and persistence-ready.</li>
-                <li>Complaint workflow UI consumes the stabilized APIs directly.</li>
+                <li>Complaint, certificate, and emergency workflows consume the stabilized APIs directly.</li>
               </ul>
             </div>
           </div>

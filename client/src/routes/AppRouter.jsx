@@ -1,20 +1,28 @@
+import { Suspense, lazy } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import DashboardLayout from "../layouts/DashboardLayout";
-import CertificateVerificationPage from "../pages/CertificateVerificationPage";
-import CertificatesPage from "../pages/CertificatesPage";
-import ComplaintPage from "../pages/ComplaintPage";
-import DashboardPage from "../pages/DashboardPage";
-import LoginPage from "../pages/LoginPage";
-import NotFoundPage from "../pages/NotFoundPage";
-import RegisterPage from "../pages/RegisterPage";
+import LoaderPanel from "../components/common/LoaderPanel";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
+
+const CertificateVerificationPage = lazy(() => import("../pages/CertificateVerificationPage"));
+const CertificatesPage = lazy(() => import("../pages/CertificatesPage"));
+const EmergenciesPage = lazy(() => import("../pages/EmergenciesPage"));
+const ComplaintPage = lazy(() => import("../pages/ComplaintPage"));
+const DashboardPage = lazy(() => import("../pages/DashboardPage"));
+const LoginPage = lazy(() => import("../pages/LoginPage"));
+const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
+const AnnouncementsPage = lazy(() => import("../pages/AnnouncementsPage"));
+const RegisterPage = lazy(() => import("../pages/RegisterPage"));
+const ResourcesPage = lazy(() => import("../pages/ResourcesPage"));
+const VolunteersPage = lazy(() => import("../pages/VolunteersPage"));
 
 function AppRouter() {
   return (
     <BrowserRouter>
-      <Routes>
+      <Suspense fallback={<div className="mx-auto max-w-3xl px-4 py-12"><LoaderPanel label="Loading workspace..." /></div>}>
+        <Routes>
         <Route
           path="/login"
           element={
@@ -43,9 +51,14 @@ function AppRouter() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/complaints" element={<ComplaintPage />} />
           <Route path="/certificates" element={<CertificatesPage />} />
+          <Route path="/emergencies" element={<EmergenciesPage />} />
+          <Route path="/resources" element={<ResourcesPage />} />
+          <Route path="/volunteers" element={<VolunteersPage />} />
+          <Route path="/announcements" element={<AnnouncementsPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

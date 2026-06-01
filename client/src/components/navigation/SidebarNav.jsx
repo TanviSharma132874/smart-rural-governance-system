@@ -1,12 +1,19 @@
 import { NavLink } from "react-router-dom";
-
-const navItems = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/complaints", label: "Complaints" },
-  { to: "/certificates", label: "Certificates" },
-];
+import { useAppSelector } from "../../redux/hooks";
 
 function SidebarNav() {
+  const user = useAppSelector((state) => state.auth.user);
+  const canManageOperations = !["citizen", "volunteer"].includes(user?.role);
+  const navItems = [
+    { to: "/dashboard", label: "Dashboard" },
+    { to: "/complaints", label: "Complaints" },
+    { to: "/certificates", label: "Certificates" },
+    { to: "/emergencies", label: "Emergencies" },
+    { to: "/announcements", label: "Announcements" },
+    ...(canManageOperations ? [{ to: "/resources", label: "Resources" }] : []),
+    { to: "/volunteers", label: "Volunteers" },
+  ];
+
   return (
     <aside className="glass-panel rounded-[32px] border border-white/70 bg-white/86 p-5">
       <p className="text-xs font-semibold uppercase tracking-[0.28em] text-ink-800/70">Workspace</p>
@@ -29,7 +36,7 @@ function SidebarNav() {
       <div className="mt-8 rounded-[26px] bg-gradient-to-br from-amber-200 via-amber-100 to-white p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ink-900/70">Workflow Note</p>
         <p className="mt-3 text-sm leading-6 text-ink-900">
-          This foundation consumes your current backend directly, so future modules can plug into a stable UI shell.
+          Complaints, certificates, and emergency operations now share the same role-aware governance shell.
         </p>
       </div>
     </aside>

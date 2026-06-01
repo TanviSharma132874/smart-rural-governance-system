@@ -41,3 +41,58 @@ export const CERTIFICATE_TYPES = [
   "Caste Certificate",
 ];
 export const CERTIFICATE_STATUSES = ["Submitted", "Under Review", "Approved", "Rejected"];
+export const EMERGENCY_TYPES = [
+  "Flood",
+  "Fire",
+  "Medical Emergency",
+  "Road Accident",
+  "Building Collapse",
+  "Water Crisis",
+  "Electricity Hazard",
+  "Animal Attack",
+  "Landslide",
+  "Storm Damage",
+];
+export const EMERGENCY_SEVERITIES = ["Low", "Medium", "High", "Critical"];
+export const EMERGENCY_STATUSES = ["Submitted", "Acknowledged", "Assigned", "In Progress", "Resolved", "Closed"];
+export const EMERGENCY_DEPARTMENTS = [
+  "Disaster Management Cell",
+  "Health Department",
+  "Police Department",
+  "Fire Department",
+  "Municipal Corporation",
+  "Panchayat Emergency Team",
+  "Electricity Department",
+];
+export const RESOURCE_TYPES = [
+  "Food Packets",
+  "Water Bottles",
+  "Medical Kits",
+  "Blankets",
+  "Emergency Shelters",
+  "Ambulances",
+  "Rescue Boats",
+  "Generators",
+];
+export const RESOURCE_STATUSES = ["Available", "Low Stock", "Depleted", "Maintenance"];
+export const VOLUNTEER_SKILLS = [
+  "Medical",
+  "Rescue",
+  "Food Distribution",
+  "Transportation",
+  "First Aid",
+  "Communication",
+  "Shelter Management",
+];
+export const VOLUNTEER_AVAILABILITY = ["Available", "Assigned", "Unavailable"];
+export const VOLUNTEER_APPROVAL_STATUSES = ["Pending", "Approved", "Rejected"];
+export const ANNOUNCEMENT_TYPES = [
+  "Flood Warning",
+  "Cyclone Alert",
+  "Heatwave Alert",
+  "Water Supply Notice",
+  "Power Outage Notice",
+  "Road Closure Notice",
+];
+export const ANNOUNCEMENT_STATUSES = ["Draft", "Published", "Archived"];
+export const ANNOUNCEMENT_AUDIENCES = ["All", "Citizens", "Officers", "Volunteers"];
