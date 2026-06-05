@@ -5,6 +5,7 @@ import {
   ANNOUNCEMENT_STATUSES,
   ANNOUNCEMENT_TYPES,
   CERTIFICATE_TYPES,
+  CERTIFICATE_TYPE_DEPARTMENTS,
   COMPLAINT_CATEGORIES,
   COMPLAINT_PRIORITIES,
   EMERGENCY_DEPARTMENTS,
@@ -107,6 +108,15 @@ export const certificateApplySchema = z
     remarks: z.string().trim().max(1000, "Remarks cannot exceed 1000 characters.").optional().or(z.literal("")),
   })
   .superRefine((data, ctx) => {
+    const allowedDepartments = CERTIFICATE_TYPE_DEPARTMENTS[data.certificateType] || [];
+    if (allowedDepartments.length && !allowedDepartments.includes(data.department)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["department"],
+        message: "Selected department does not match the certificate type.",
+      });
+    }
+
     if (data.jurisdictionType === "Rural" && !data.village) {
       ctx.addIssue({
         code: "custom",

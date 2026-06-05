@@ -8,6 +8,7 @@ import ComplaintList from "../components/complaints/ComplaintList";
 import LoaderPanel from "../components/common/LoaderPanel";
 import { useAppSelector } from "../redux/hooks";
 import complaintService from "../services/complaintService";
+import { connectLiveUpdates, disconnectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
 import { getApiErrorMessage } from "../utils/formatters";
 
 const initialFilters = {
@@ -83,6 +84,52 @@ function ComplaintPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshComplaints(query, selectedComplaint?.id);
   }, [query, refreshComplaints, selectedComplaint?.id]);
+
+  useEffect(() => {
+    const socket = connectLiveUpdates({
+      userId: user?.id,
+      role: user?.role,
+      department: user?.department,
+      state: user?.state,
+      district: user?.district,
+      jurisdictionType: user?.jurisdictionType,
+      village: user?.village,
+      municipality: user?.municipality,
+    });
+
+    const handleComplaintCreated = ({ complaint }) => {
+      if (!canManage) {
+        toast.success(`Complaint created: ${complaint.title}`);
+      } else {
+        toast.success(`New complaint received: ${complaint.title}`);
+      }
+      refreshComplaints(query, selectedComplaint?.id);
+    };
+
+    const handleComplaintUpdated = ({ complaint }) => {
+      toast.success(`Complaint updated: ${complaint.status}`);
+      if (selectedComplaint?.id === complaint.id) {
+        setSelectedComplaint(complaint);
+      }
+      refreshComplaints(query, selectedComplaint?.id);
+    };
+
+    socket.on("complaint:created", handleComplaintCreated);
+    socket.on("complaint:updated", handleComplaintUpdated);
+    socket.on("complaint:assigned", handleComplaintUpdated);
+    socket.on("complaint:resolved", handleComplaintUpdated);
+    socket.on("complaint:rejected", handleComplaintUpdated);
+
+    return () => {
+      const activeSocket = getLiveUpdatesSocket();
+      activeSocket?.off("complaint:created", handleComplaintCreated);
+      activeSocket?.off("complaint:updated", handleComplaintUpdated);
+      activeSocket?.off("complaint:assigned", handleComplaintUpdated);
+      activeSocket?.off("complaint:resolved", handleComplaintUpdated);
+      activeSocket?.off("complaint:rejected", handleComplaintUpdated);
+      disconnectLiveUpdates();
+    };
+  }, [user, query, selectedComplaint?.id, refreshComplaints, canManage]);
 
   const handleFilterChange = (event) => {
     const { name, value } = event.target;

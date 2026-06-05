@@ -14,6 +14,7 @@ import PaginationControls from "../components/common/PaginationControls";
 import StatusBadge from "../components/common/StatusBadge";
 import { useAppSelector } from "../redux/hooks";
 import certificateService from "../services/certificateService";
+import { connectLiveUpdates, disconnectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
 import { CERTIFICATE_STATUSES, CERTIFICATE_TYPES } from "../utils/constants";
 import { getApiErrorMessage } from "../utils/formatters";
 
@@ -116,6 +117,50 @@ function CertificatesPage() {
 
     return () => clearTimeout(timer);
   }, [loadRecords]);
+
+  useEffect(() => {
+    const socket = connectLiveUpdates({
+      userId: user?.id,
+      role: user?.role,
+      department: user?.department,
+      state: user?.state,
+      district: user?.district,
+      jurisdictionType: user?.jurisdictionType,
+      village: user?.village,
+      municipality: user?.municipality,
+    });
+
+    const handleCertificateCreated = ({ certificate }) => {
+      if (isCitizen) {
+        toast.success(`Certificate application submitted: ${certificate.applicationNumber}`);
+      } else {
+        toast.success(`New certificate application received: ${certificate.applicationNumber}`);
+      }
+      loadRecords();
+    };
+
+    const handleCertificateUpdated = ({ certificate }) => {
+      toast.success(`Certificate application updated: ${certificate.status}`);
+      if (selectedCertificate?.id === certificate.id) {
+        setSelectedCertificate(certificate);
+      }
+      loadRecords();
+    };
+
+    socket.on("certificate:submitted", handleCertificateCreated);
+    socket.on("certificate:approved", handleCertificateUpdated);
+    socket.on("certificate:rejected", handleCertificateUpdated);
+    socket.on("certificate:updated", handleCertificateUpdated);
+
+    return () => {
+      const activeSocket = getLiveUpdatesSocket();
+      activeSocket?.off("certificate:submitted", handleCertificateCreated);
+      activeSocket?.off("certificate:approved", handleCertificateUpdated);
+      activeSocket?.off("certificate:rejected", handleCertificateUpdated);
+      activeSocket?.off("certificate:updated", handleCertificateUpdated);
+      disconnectLiveUpdates();
+    };
+  }, [user, isCitizen, selectedCertificate?.id, loadRecords]);
 
   const runBusyAction = async (action) => {
     setBusy(true);

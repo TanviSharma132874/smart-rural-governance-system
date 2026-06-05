@@ -2,6 +2,7 @@ const Complaint = require("../models/Complaint");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const logger = require("../utils/logger");
+const { emitRealtimeEvent } = require("../sockets");
 const {
   OFFICER_ROLES,
   COMPLAINT_STATUSES,
@@ -64,6 +65,11 @@ const formatComplaint = (complaint) => ({
   images: complaint.images,
   location: complaint.location,
   jurisdictionType: complaint.jurisdictionType,
+  state: complaint.state,
+  district: complaint.district,
+  tehsil: complaint.tehsil,
+  village: complaint.village,
+  municipality: complaint.municipality,
   escalationStatus: complaint.escalationStatus,
   escalatedAt: complaint.escalatedAt,
   isEscalated:
@@ -92,6 +98,19 @@ const normalizeLocation = (payload = {}) => {
     landmark,
     latitude: Number.isNaN(latitude) ? null : latitude,
     longitude: Number.isNaN(longitude) ? null : longitude,
+  };
+};
+
+const buildJurisdiction = (payload = {}, user) => {
+  const jurisdictionType = payload.jurisdictionType || user?.jurisdictionType || "Rural";
+
+  return {
+    jurisdictionType,
+    state: payload.state || user?.state || "",
+    district: payload.district || user?.district || "",
+    tehsil: payload.tehsil || user?.tehsil || "",
+    village: jurisdictionType === "Rural" ? payload.village || user?.village || "" : "",
+    municipality: jurisdictionType === "Urban" ? payload.municipality || user?.municipality || "" : "",
   };
 };
 
@@ -138,6 +157,76 @@ const persistEscalationsForRecords = async (complaints = []) => {
   await Promise.all(complaintsToEscalate.map((complaint) => persistEscalation(complaint._id)));
 };
 
+const buildJurisdictionQuery = (user) => {
+  if (user.role === "superAdmin") {
+    return {};
+  }
+
+  const query = {};
+
+  if (user.state) {
+    query.state = user.state;
+  }
+
+  if (user.role === "stateAdmin") {
+    return query;
+  }
+
+  if (user.district) {
+    query.district = user.district;
+  }
+
+  if (user.role === "districtAdmin") {
+    return query;
+  }
+
+  if (user.tehsil) {
+    query.tehsil = user.tehsil;
+  }
+
+  if (user.jurisdictionType) {
+    query.jurisdictionType = user.jurisdictionType;
+  }
+
+  if (user.jurisdictionType === "Rural" && user.village) {
+    query.village = user.village;
+  }
+
+  if (user.jurisdictionType === "Urban" && user.municipality) {
+    query.municipality = user.municipality;
+  }
+
+  return query;
+};
+
+const ensureJurisdictionAccess = (user, complaint) => {
+  if (user.role === "superAdmin") {
+    return;
+  }
+
+  if (user.state && user.state !== complaint.state) {
+    throw new AppError("You are not authorized for complaints outside your state jurisdiction", 403);
+  }
+
+  if (["districtAdmin", "departmentOfficer", "panchayatOfficer"].includes(user.role) && user.district && user.district !== complaint.district) {
+    throw new AppError("You are not authorized for complaints outside your district jurisdiction", 403);
+  }
+
+  if (["departmentOfficer", "panchayatOfficer"].includes(user.role)) {
+    if (user.tehsil && user.tehsil !== complaint.tehsil) {
+      throw new AppError("You are not authorized for complaints outside your tehsil or block", 403);
+    }
+
+    if (user.jurisdictionType === "Rural" && user.village && user.village !== complaint.village) {
+      throw new AppError("You are not authorized for complaints outside your village jurisdiction", 403);
+    }
+
+    if (user.jurisdictionType === "Urban" && user.municipality && user.municipality !== complaint.municipality) {
+      throw new AppError("You are not authorized for complaints outside your municipality jurisdiction", 403);
+    }
+  }
+};
+
 const buildComplaintQuery = (user, filters = {}) => {
   const query = {
     isDeleted: false,
@@ -145,6 +234,8 @@ const buildComplaintQuery = (user, filters = {}) => {
 
   if (user.role === "citizen") {
     query.citizenId = user.id;
+  } else {
+    Object.assign(query, buildJurisdictionQuery(user));
   }
 
   if (filters.status) {
@@ -200,20 +291,20 @@ const validateAssignedOfficer = async (assignedOfficerId) => {
   return officer;
 };
 
-const createComplaint = async (payload, citizenId, files = []) => {
+const createComplaint = async (payload, user, files = []) => {
   const complaint = await Complaint.create({
     title: payload.title,
     description: payload.description,
     category: payload.category,
     priority: payload.priority || "Medium",
-    citizenId,
+    citizenId: user.id,
     images: normalizeImages(files),
     location: normalizeLocation(payload),
-    jurisdictionType: payload.jurisdictionType || "Rural",
+    ...buildJurisdiction(payload, user),
     statusHistory: [
       {
         status: COMPLAINT_STATUSES[0],
-        updatedBy: citizenId,
+        updatedBy: user.id,
       },
     ],
   });
@@ -221,12 +312,23 @@ const createComplaint = async (payload, citizenId, files = []) => {
   await complaint.populate(detailPopulateOptions);
   logger.info("Complaint created", {
     complaintId: complaint._id.toString(),
-    citizenId: citizenId.toString(),
+    citizenId: user.id.toString(),
     priority: complaint.priority,
     status: complaint.status,
   });
 
-  return formatComplaint(complaint);
+  const formatted = formatComplaint(complaint);
+  emitRealtimeEvent(
+    [
+      `district:${complaint.district}`,
+      `jurisdiction:${complaint.jurisdictionType}`,
+      `user:${user.id}`,
+    ],
+    "complaint:created",
+    { complaint: formatted }
+  );
+
+  return formatted;
 };
 
 const getComplaints = async (user, filters = {}) => {
@@ -290,6 +392,10 @@ const getComplaintById = async (complaintId, user) => {
     throw new AppError("You are not authorized to view this complaint", 403);
   }
 
+  if (!isCitizenOwner && isAdminOrOfficer) {
+    ensureJurisdictionAccess(user, complaint);
+  }
+
   if (shouldEscalateComplaint(complaint)) {
     await persistEscalation(complaint._id);
     complaint.escalationStatus = "Escalated";
@@ -306,13 +412,15 @@ const updateComplaintStatus = async (complaintId, payload, user) => {
     throw new AppError("Complaint not found", 404);
   }
 
+  ensureJurisdictionAccess(user, complaint);
+
   if (!STATUS_TRANSITIONS[complaint.status].includes(payload.status)) {
     throw new AppError(`Invalid status transition from ${complaint.status} to ${payload.status}`, 400);
   }
 
   complaint.status = payload.status;
   if (["Resolved", "Rejected"].includes(payload.status)) {
-    complaint.escalationStatus = "Not Escalated";
+    complaint.escalationStatus = "Normal";
     complaint.escalatedAt = null;
   }
 
@@ -334,7 +442,23 @@ const updateComplaintStatus = async (complaintId, payload, user) => {
     updatedBy: user.id.toString(),
   });
 
-  return formatComplaint(complaint);
+  const formatted = formatComplaint(complaint);
+  const rooms = [
+    `user:${complaint.citizenId?._id || complaint.citizenId}`,
+    `district:${complaint.district}`,
+  ];
+  if (complaint.assignedOfficer) {
+    rooms.push(`user:${complaint.assignedOfficer?._id || complaint.assignedOfficer}`);
+  }
+
+  emitRealtimeEvent(rooms, "complaint:updated", { complaint: formatted });
+  if (payload.status === "Resolved") {
+    emitRealtimeEvent(rooms, "complaint:resolved", { complaint: formatted });
+  } else if (payload.status === "Rejected") {
+    emitRealtimeEvent(rooms, "complaint:rejected", { complaint: formatted });
+  }
+
+  return formatted;
 };
 
 const assignComplaint = async (complaintId, assignedOfficerId, user) => {
@@ -343,6 +467,8 @@ const assignComplaint = async (complaintId, assignedOfficerId, user) => {
   if (!complaint) {
     throw new AppError("Complaint not found", 404);
   }
+
+  ensureJurisdictionAccess(user, complaint);
 
   await validateAssignedOfficer(assignedOfficerId);
 
@@ -369,7 +495,18 @@ const assignComplaint = async (complaintId, assignedOfficerId, user) => {
     status: complaint.status,
   });
 
-  return formatComplaint(complaint);
+  const formatted = formatComplaint(complaint);
+  emitRealtimeEvent(
+    [
+      `user:${complaint.citizenId?._id || complaint.citizenId}`,
+      `user:${assignedOfficerId}`,
+      `district:${complaint.district}`,
+    ],
+    "complaint:assigned",
+    { complaint: formatted }
+  );
+
+  return formatted;
 };
 
 const deleteComplaint = async (complaintId, user) => {
@@ -378,6 +515,8 @@ const deleteComplaint = async (complaintId, user) => {
   if (!complaint) {
     throw new AppError("Complaint not found", 404);
   }
+
+  ensureJurisdictionAccess(user, complaint);
 
   complaint.isDeleted = true;
   complaint.deletedAt = new Date();

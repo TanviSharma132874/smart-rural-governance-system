@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-hot-toast";
 
 import {
   CERTIFICATE_TYPES,
+  CERTIFICATE_TYPE_DEPARTMENTS,
   GOVERNMENT_DEPARTMENTS,
   JURISDICTION_TYPES,
 } from "../../utils/constants";
@@ -17,6 +18,7 @@ function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
     register,
     handleSubmit,
     control,
+    setValue,
     reset,
     formState: { errors },
   } = useForm({
@@ -38,7 +40,29 @@ function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
     control,
     name: "jurisdictionType",
   });
+  const certificateType = useWatch({
+    control,
+    name: "certificateType",
+  });
+  const selectedDepartment = useWatch({
+    control,
+    name: "department",
+  });
+  const allowedDepartments = useMemo(() => {
+    const mapped = CERTIFICATE_TYPE_DEPARTMENTS[certificateType] || [];
+    return mapped.length ? mapped : GOVERNMENT_DEPARTMENTS;
+  }, [certificateType]);
   const fileSummary = useMemo(() => files.map((file) => file.name).join(", "), [files]);
+
+  useEffect(() => {
+    if (!allowedDepartments.length) {
+      return;
+    }
+
+    if (!allowedDepartments.includes(selectedDepartment)) {
+      setValue("department", allowedDepartments[0], { shouldValidate: true });
+    }
+  }, [allowedDepartments, selectedDepartment, setValue]);
 
   const handleFileChange = (event) => {
     setFiles(Array.from(event.target.files || []));
@@ -88,7 +112,7 @@ function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
           as="select"
           registration={register("department")}
           error={errors.department?.message}
-          options={GOVERNMENT_DEPARTMENTS.map((item) => ({ value: item, label: item }))}
+          options={allowedDepartments.map((item) => ({ value: item, label: item }))}
         />
         <FormField
           label="Jurisdiction Type"

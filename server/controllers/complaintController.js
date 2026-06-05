@@ -3,7 +3,7 @@ const sendSuccess = require("../utils/apiResponse");
 const complaintService = require("../services/complaintService");
 
 const createComplaint = asyncHandler(async (req, res) => {
-  const complaint = await complaintService.createComplaint(req.body, req.user.id, req.files);
+  const complaint = await complaintService.createComplaint(req.body, req.user, req.files);
 
   sendSuccess(res, {
     statusCode: 201,

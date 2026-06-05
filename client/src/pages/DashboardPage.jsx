@@ -11,13 +11,20 @@ import { formatDate, getApiErrorMessage, getRoleLabel } from "../utils/formatter
 
 function DashboardPage() {
   const user = useAppSelector((state) => state.auth.user);
-  const isOfficer = ["panchayatOfficer", "districtAdmin", "superAdmin"].includes(user?.role);
+  const isOfficer = ["panchayatOfficer", "departmentOfficer", "districtAdmin", "stateAdmin", "superAdmin"].includes(user?.role);
   const [stats, setStats] = useState(null);
   const [recentComplaints, setRecentComplaints] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const loadDashboard = async () => {
+      const complaintRoles = ["citizen", "panchayatOfficer", "districtAdmin", "superAdmin"];
+      if (!complaintRoles.includes(user?.role)) {
+        setStats({ total: 0, pending: 0, inProgress: 0, resolved: 0 });
+        setRecentComplaints([]);
+        return;
+      }
+
       try {
         const [all, pending, progress, resolved] = await Promise.all([
           complaintService.getComplaints({ page: 1, limit: 5, sort: "latest" }),
@@ -35,11 +42,13 @@ function DashboardPage() {
         });
       } catch (requestError) {
         setError(getApiErrorMessage(requestError));
+        setStats({ total: 0, pending: 0, inProgress: 0, resolved: 0 });
+        setRecentComplaints([]);
       }
     };
 
     loadDashboard();
-  }, []);
+  }, [user?.role]);
 
   if (!stats) {
     return <LoaderPanel label="Preparing dashboard..." />;

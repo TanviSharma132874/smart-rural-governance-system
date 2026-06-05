@@ -93,6 +93,36 @@ const complaintSchema = new mongoose.Schema(
       default: "Rural",
       index: true,
     },
+    state: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    district: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    tehsil: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    village: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    municipality: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
     escalationStatus: {
       type: String,
       enum: ["Normal", "Escalated"],
@@ -135,5 +165,6 @@ complaintSchema.index({ citizenId: 1 });
 complaintSchema.index({ assignedOfficer: 1 });
 complaintSchema.index({ category: 1, status: 1, priority: 1 });
 complaintSchema.index({ title: "text", description: "text" });
+complaintSchema.index({ state: 1, district: 1, tehsil: 1, village: 1, municipality: 1 });
 
 module.exports = mongoose.model("Complaint", complaintSchema);

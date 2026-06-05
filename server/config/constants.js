@@ -33,9 +33,13 @@ const COMPLAINT_SORT_OPTIONS = ["latest", "oldest", "priority"];
 const CERTIFICATE_TYPES = [
   "Birth Certificate",
   "Death Certificate",
+  "Marriage Certificate",
   "Income Certificate",
   "Residence Certificate",
+  "Domicile Certificate",
   "Caste Certificate",
+  "Senior Citizen Certificate",
+  "Disability Certificate",
 ];
 const CERTIFICATE_STATUSES = ["Submitted", "Under Review", "Approved", "Rejected"];
 const GOVERNMENT_DEPARTMENTS = [
@@ -47,9 +51,13 @@ const GOVERNMENT_DEPARTMENTS = [
 const CERTIFICATE_TYPE_DEPARTMENTS = {
   "Birth Certificate": ["Civil Registration Department"],
   "Death Certificate": ["Civil Registration Department"],
+  "Marriage Certificate": ["Civil Registration Department"],
   "Income Certificate": ["Revenue Department"],
-  "Residence Certificate": ["Revenue Department", "Local Administration Department"],
-  "Caste Certificate": ["Revenue Department", "Social Welfare Department"],
+  "Residence Certificate": ["Revenue Department"],
+  "Domicile Certificate": ["Revenue Department"],
+  "Caste Certificate": ["Social Welfare Department"],
+  "Senior Citizen Certificate": ["Social Welfare Department"],
+  "Disability Certificate": ["Social Welfare Department"],
 };
 
 const EMERGENCY_TYPES = [

@@ -1,5 +1,6 @@
 const Volunteer = require("../models/Volunteer");
 const AppError = require("../utils/AppError");
+const { emitRealtimeEvent } = require("../sockets");
 
 const formatVolunteer = (volunteer) => ({
   id: volunteer._id,
@@ -124,7 +125,17 @@ const approveVolunteer = async (volunteerId, payload, user) => {
   await volunteer.save();
   await volunteer.populate([{ path: "user", select: "name email role" }, { path: "approvedBy", select: "name email role" }]);
 
-  return formatVolunteer(volunteer);
+  const formatted = formatVolunteer(volunteer);
+  emitRealtimeEvent(
+    [
+      `user:${volunteer.user?._id || volunteer.user}`,
+      `district:${volunteer.district}`,
+    ],
+    "volunteer:approved",
+    { volunteer: formatted }
+  );
+
+  return formatted;
 };
 
 const updateVolunteerAvailability = async (volunteerId, payload, user) => {

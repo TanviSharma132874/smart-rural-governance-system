@@ -4,6 +4,7 @@ const AppError = require("../utils/AppError");
 const logger = require("../utils/logger");
 const { buildCertificatePdfBuffer } = require("./pdfService");
 const { generateCertificateVerificationAssets } = require("./qrCodeService");
+const { emitRealtimeEvent } = require("../sockets");
 const {
   CERTIFICATE_TYPE_DEPARTMENTS,
   OFFICER_ROLES,
@@ -283,7 +284,18 @@ const applyCertificate = async (payload, user, files = []) => {
     applicantId: user.id.toString(),
   });
 
-  return formatCertificate(certificate);
+  const formatted = formatCertificate(certificate);
+  emitRealtimeEvent(
+    [
+      `user:${user.id}`,
+      `district:${certificate.district}`,
+      `department:${certificate.department}`,
+    ],
+    "certificate:submitted",
+    { certificate: formatted }
+  );
+
+  return formatted;
 };
 
 const getMyApplications = async (user, filters = {}) => {
@@ -404,7 +416,18 @@ const reviewCertificate = async (certificateId, payload, user) => {
     reviewedBy: user.id.toString(),
   });
 
-  return formatCertificate(certificate);
+  const formatted = formatCertificate(certificate);
+  emitRealtimeEvent(
+    [
+      `user:${certificate.applicant?._id || certificate.applicant}`,
+      `district:${certificate.district}`,
+      `department:${certificate.department}`,
+    ],
+    "certificate:updated",
+    { certificate: formatted }
+  );
+
+  return formatted;
 };
 
 const updateCertificateStatus = async (certificateId, payload, user) => {
@@ -461,7 +484,20 @@ const updateCertificateStatus = async (certificateId, payload, user) => {
     updatedBy: user.id.toString(),
   });
 
-  return formatCertificate(certificate);
+  const formatted = formatCertificate(certificate);
+  const rooms = [
+    `user:${certificate.applicant?._id || certificate.applicant}`,
+    `district:${certificate.district}`,
+    `department:${certificate.department}`,
+  ];
+  emitRealtimeEvent(rooms, "certificate:updated", { certificate: formatted });
+  if (certificate.status === "Approved") {
+    emitRealtimeEvent(rooms, "certificate:approved", { certificate: formatted });
+  } else if (certificate.status === "Rejected") {
+    emitRealtimeEvent(rooms, "certificate:rejected", { certificate: formatted });
+  }
+
+  return formatted;
 };
 
 const verifyCertificate = async (certificateId) => {

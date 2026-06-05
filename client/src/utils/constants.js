@@ -36,10 +36,25 @@ export const COMPLAINT_CATEGORIES = [
 export const CERTIFICATE_TYPES = [
   "Birth Certificate",
   "Death Certificate",
+  "Marriage Certificate",
   "Income Certificate",
   "Residence Certificate",
+  "Domicile Certificate",
   "Caste Certificate",
+  "Senior Citizen Certificate",
+  "Disability Certificate",
 ];
+export const CERTIFICATE_TYPE_DEPARTMENTS = {
+  "Birth Certificate": ["Civil Registration Department"],
+  "Death Certificate": ["Civil Registration Department"],
+  "Marriage Certificate": ["Civil Registration Department"],
+  "Income Certificate": ["Revenue Department"],
+  "Residence Certificate": ["Revenue Department"],
+  "Domicile Certificate": ["Revenue Department"],
+  "Caste Certificate": ["Social Welfare Department"],
+  "Senior Citizen Certificate": ["Social Welfare Department"],
+  "Disability Certificate": ["Social Welfare Department"],
+};
 export const CERTIFICATE_STATUSES = ["Submitted", "Under Review", "Approved", "Rejected"];
 export const EMERGENCY_TYPES = [
   "Flood",
