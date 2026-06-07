@@ -33,6 +33,21 @@ export const COMPLAINT_CATEGORIES = [
   "Public Safety",
   "Other",
 ];
+export const COMPLAINT_SUBCATEGORY_MAP = {
+  Roads: ["Potholes", "Broken Culvert", "Road Blockage", "Damaged Bridge"],
+  Water: ["No Water Supply", "Pipe Leakage", "Contaminated Water", "Handpump Failure"],
+  Electricity: ["Power Cut", "Transformer Fault", "Loose Wires", "Pole Damage"],
+  Sanitation: ["Open Drain", "Public Toilet", "Sewage Overflow", "Cleaning Request"],
+  "Street Lights": ["Light Not Working", "Broken Pole", "New Installation Request"],
+  Health: ["PHC Issue", "Medicine Shortage", "Ambulance Delay", "Public Health Hazard"],
+  "Waste Management": ["Garbage Collection Delay", "Dumping Issue", "Waste Overflow"],
+  Drainage: ["Blocked Drain", "Flooding", "Water Logging"],
+  Traffic: ["Signal Issue", "Congestion", "Parking Problem"],
+  Garbage: ["Garbage Not Collected", "Garbage Overflow", "Animal Scattering Waste"],
+  "Municipal Issues": ["Encroachment", "Public Space Damage", "Tax/Service Issue"],
+  "Public Safety": ["Unsafe Area", "Broken Barrier", "Fire Risk", "Emergency Hazard"],
+  Other: ["General Complaint"],
+};
 export const CERTIFICATE_TYPES = [
   "Birth Certificate",
   "Death Certificate",

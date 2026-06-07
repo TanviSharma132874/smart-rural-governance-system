@@ -32,12 +32,48 @@ const resourceAuditSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const resourceAllocationSchema = new mongoose.Schema(
+  {
+    emergency: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Emergency",
+      default: null,
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    allocatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    allocatedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    remarks: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 500,
+    },
+  },
+  { _id: false }
+);
+
 const resourceSchema = new mongoose.Schema(
   {
     resourceType: {
       type: String,
       enum: RESOURCE_TYPES,
       required: true,
+    },
+    resourceCategory: {
+      type: String,
+      default: "",
+      trim: true,
     },
     quantity: {
       type: Number,
@@ -113,6 +149,14 @@ const resourceSchema = new mongoose.Schema(
     auditHistory: {
       type: [resourceAuditSchema],
       default: [],
+    },
+    allocationHistory: {
+      type: [resourceAllocationSchema],
+      default: [],
+    },
+    lastAllocationAt: {
+      type: Date,
+      default: null,
     },
     isDeleted: {
       type: Boolean,

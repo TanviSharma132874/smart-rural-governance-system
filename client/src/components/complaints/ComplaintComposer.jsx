@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-hot-toast";
 
-import { COMPLAINT_CATEGORIES, COMPLAINT_PRIORITIES } from "../../utils/constants";
+import { COMPLAINT_CATEGORIES, COMPLAINT_PRIORITIES, COMPLAINT_SUBCATEGORY_MAP } from "../../utils/constants";
 import { complaintSchema } from "../../utils/validationSchemas";
 import FormField from "../common/FormField";
 
@@ -12,6 +12,7 @@ function ComplaintComposer({ onSubmit, isSubmitting }) {
   const {
     register,
     handleSubmit,
+    watch,
     reset,
     formState: { errors },
   } = useForm({
@@ -20,14 +21,22 @@ function ComplaintComposer({ onSubmit, isSubmitting }) {
       title: "",
       description: "",
       category: "",
+      subcategory: "",
       priority: "Medium",
       locationAddress: "",
       landmark: "",
+      wardNumber: "",
+      citizenRemarks: "",
       latitude: "",
       longitude: "",
     },
   });
 
+  const selectedCategory = watch("category");
+  const subcategoryOptions = useMemo(
+    () => (COMPLAINT_SUBCATEGORY_MAP[selectedCategory] || []).map((item) => ({ value: item, label: item })),
+    [selectedCategory]
+  );
   const fileSummary = useMemo(() => files.map((file) => file.name).join(", "), [files]);
 
   const handleFileChange = (event) => {
@@ -87,6 +96,14 @@ function ComplaintComposer({ onSubmit, isSubmitting }) {
               ...COMPLAINT_CATEGORIES.map((category) => ({ value: category, label: category })),
             ]}
           />
+          <FormField
+            label="Subcategory"
+            name="subcategory"
+            as="select"
+            registration={register("subcategory")}
+            error={errors.subcategory?.message}
+            options={[{ value: "", label: "Select subcategory" }, ...subcategoryOptions]}
+          />
         </div>
 
         <FormField
@@ -122,6 +139,13 @@ function ComplaintComposer({ onSubmit, isSubmitting }) {
             placeholder="Temple / bus stop"
           />
           <FormField
+            label="Ward Number"
+            name="wardNumber"
+            registration={register("wardNumber")}
+            error={errors.wardNumber?.message}
+            placeholder="Optional ward number"
+          />
+          <FormField
             label="Latitude"
             name="latitude"
             registration={register("latitude")}
@@ -129,6 +153,15 @@ function ComplaintComposer({ onSubmit, isSubmitting }) {
             placeholder="Optional"
           />
         </div>
+
+        <FormField
+          label="Citizen Remarks"
+          name="citizenRemarks"
+          as="textarea"
+          registration={register("citizenRemarks")}
+          error={errors.citizenRemarks?.message}
+          placeholder="Optional additional remarks for the officer."
+        />
 
         <div className="grid gap-4 md:grid-cols-[1fr_auto]">
           <FormField

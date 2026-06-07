@@ -23,6 +23,16 @@ const getComplaints = asyncHandler(async (req, res) => {
   });
 });
 
+const getDashboardAnalytics = asyncHandler(async (req, res) => {
+  const analytics = await complaintService.getDashboardAnalytics(req.user);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "Dashboard analytics fetched successfully",
+    data: analytics,
+  });
+});
+
 const getComplaintById = asyncHandler(async (req, res) => {
   const complaint = await complaintService.getComplaintById(req.params.id, req.user);
 
@@ -34,7 +44,7 @@ const getComplaintById = asyncHandler(async (req, res) => {
 });
 
 const updateComplaintStatus = asyncHandler(async (req, res) => {
-  const complaint = await complaintService.updateComplaintStatus(req.params.id, req.body, req.user);
+  const complaint = await complaintService.updateComplaintStatus(req.params.id, req.body, req.user, req.files);
 
   sendSuccess(res, {
     statusCode: 200,
@@ -66,6 +76,7 @@ const deleteComplaint = asyncHandler(async (req, res) => {
 module.exports = {
   createComplaint,
   getComplaints,
+  getDashboardAnalytics,
   getComplaintById,
   updateComplaintStatus,
   assignComplaint,

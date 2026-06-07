@@ -366,6 +366,19 @@ function CertificatesPage() {
                     </div>
                   </div>
 
+                  {selectedCertificate.certificateDetails && Object.keys(selectedCertificate.certificateDetails).length ? (
+                    <div className="mt-5 rounded-[24px] bg-slate-50 p-4 text-sm text-ink-800">
+                      <p className="font-semibold text-ink-950">Certificate Details</p>
+                      <div className="mt-3 grid gap-2 md:grid-cols-2">
+                        {Object.entries(selectedCertificate.certificateDetails).map(([key, value]) => (
+                          <p key={key}>
+                            <span className="font-semibold text-ink-950">{key}:</span> {String(value)}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="mt-5 flex flex-wrap gap-3">
                     {selectedCertificate.uploadedDocuments?.map((documentPath) => (
                       <button

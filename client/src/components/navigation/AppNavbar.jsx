@@ -9,7 +9,7 @@ function AppNavbar({ user, onLogout }) {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-leaf-600">Smart Rural Governance</p>
           <Link to="/dashboard" className="mt-1 block font-display text-2xl text-ink-950">
-            Operations Console
+            Dashboard
           </Link>
         </div>
 

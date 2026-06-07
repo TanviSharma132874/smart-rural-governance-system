@@ -111,6 +111,10 @@ const certificateSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    certificateDetails: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     remarks: {
       type: String,
       default: "",

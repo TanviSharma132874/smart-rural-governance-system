@@ -55,6 +55,10 @@ const buildQuery = (user, filters = {}) => {
 
   if (user.role === "citizen") {
     query.status = "Published";
+    query.targetAudience = { $in: ["All", "Citizens"] };
+  } else if (user.role === "volunteer") {
+    query.status = "Published";
+    query.targetAudience = { $in: ["All", "Volunteers"] };
   } else if (filters.status) {
     query.status = filters.status;
   }
@@ -122,8 +126,16 @@ const getAnnouncementById = async (announcementId, user) => {
     throw new AppError("Announcement not found", 404);
   }
 
-  if (user.role === "citizen" && announcement.status !== "Published") {
+  if (["citizen", "volunteer"].includes(user.role) && announcement.status !== "Published") {
     throw new AppError("This announcement is not published yet", 403);
+  }
+
+  if (user.role === "citizen" && !["All", "Citizens"].includes(announcement.targetAudience)) {
+    throw new AppError("This announcement is not available for citizen access", 403);
+  }
+
+  if (user.role === "volunteer" && !["All", "Volunteers"].includes(announcement.targetAudience)) {
+    throw new AppError("This announcement is not available for volunteer access", 403);
   }
 
   return formatAnnouncement(announcement);

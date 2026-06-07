@@ -28,6 +28,36 @@ const COMPLAINT_CATEGORIES = [
   "Public Safety",
   "Other",
 ];
+const COMPLAINT_SUBCATEGORY_MAP = {
+  Roads: ["Potholes", "Broken Culvert", "Road Blockage", "Damaged Bridge"],
+  Water: ["No Water Supply", "Pipe Leakage", "Contaminated Water", "Handpump Failure"],
+  Electricity: ["Power Cut", "Transformer Fault", "Loose Wires", "Pole Damage"],
+  Sanitation: ["Open Drain", "Public Toilet", "Sewage Overflow", "Cleaning Request"],
+  "Street Lights": ["Light Not Working", "Broken Pole", "New Installation Request"],
+  Health: ["PHC Issue", "Medicine Shortage", "Ambulance Delay", "Public Health Hazard"],
+  "Waste Management": ["Garbage Collection Delay", "Dumping Issue", "Waste Overflow"],
+  Drainage: ["Blocked Drain", "Flooding", "Water Logging"],
+  Traffic: ["Signal Issue", "Congestion", "Parking Problem"],
+  Garbage: ["Garbage Not Collected", "Garbage Overflow", "Animal Scattering Waste"],
+  "Municipal Issues": ["Encroachment", "Public Space Damage", "Tax/Service Issue"],
+  "Public Safety": ["Unsafe Area", "Broken Barrier", "Fire Risk", "Emergency Hazard"],
+  Other: ["General Complaint"],
+};
+const COMPLAINT_CATEGORY_DEPARTMENTS = {
+  Roads: "Local Administration Department",
+  Water: "Local Administration Department",
+  Electricity: "Local Administration Department",
+  Sanitation: "Local Administration Department",
+  "Street Lights": "Local Administration Department",
+  Health: "Social Welfare Department",
+  "Waste Management": "Local Administration Department",
+  Drainage: "Local Administration Department",
+  Traffic: "Local Administration Department",
+  Garbage: "Local Administration Department",
+  "Municipal Issues": "Local Administration Department",
+  "Public Safety": "Local Administration Department",
+  Other: "Local Administration Department",
+};
 const COMPLAINT_SORT_OPTIONS = ["latest", "oldest", "priority"];
 
 const CERTIFICATE_TYPES = [
@@ -139,6 +169,8 @@ module.exports = {
   COMPLAINT_STATUSES,
   COMPLAINT_PRIORITIES,
   COMPLAINT_CATEGORIES,
+  COMPLAINT_SUBCATEGORY_MAP,
+  COMPLAINT_CATEGORY_DEPARTMENTS,
   COMPLAINT_SORT_OPTIONS,
   CERTIFICATE_TYPES,
   CERTIFICATE_STATUSES,

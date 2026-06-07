@@ -1,7 +1,9 @@
 import FilterBar from "../common/FilterBar";
 import FormField from "../common/FormField";
+import { COMPLAINT_CATEGORIES, COMPLAINT_SUBCATEGORY_MAP, GOVERNMENT_DEPARTMENTS } from "../../utils/constants";
 
 function ComplaintFilters({ filters, onChange, onReset, pagination, isLoading }) {
+  const subcategoryOptions = filters.category ? COMPLAINT_SUBCATEGORY_MAP[filters.category] || [] : [];
   return (
     <FilterBar
       eyebrow="Query Controls"
@@ -17,7 +19,7 @@ function ComplaintFilters({ filters, onChange, onReset, pagination, isLoading })
       }
     >
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-8">
         <FormField label="Search" name="search" value={filters.search} onChange={onChange} placeholder="Search title or description" />
         <FormField
           label="Status"
@@ -47,7 +49,10 @@ function ComplaintFilters({ filters, onChange, onReset, pagination, isLoading })
             { value: "Critical", label: "Critical" },
           ]}
         />
-        <FormField label="Category" name="category" value={filters.category} onChange={onChange} placeholder="Water / Roads / Health" />
+        <FormField label="Category" name="category" as="select" value={filters.category} onChange={onChange} options={[{ value: "", label: "All categories" }, ...COMPLAINT_CATEGORIES.map((item) => ({ value: item, label: item }))]} />
+        <FormField label="Subcategory" name="subcategory" as="select" value={filters.subcategory} onChange={onChange} options={[{ value: "", label: "All subcategories" }, ...subcategoryOptions.map((item) => ({ value: item, label: item }))]} />
+        <FormField label="Department" name="responsibleDepartment" as="select" value={filters.responsibleDepartment} onChange={onChange} options={[{ value: "", label: "All departments" }, ...GOVERNMENT_DEPARTMENTS.map((item) => ({ value: item, label: item }))]} />
+        <FormField label="Escalation" name="escalationStatus" as="select" value={filters.escalationStatus} onChange={onChange} options={[{ value: "", label: "All escalation states" }, { value: "Normal", label: "Normal" }, { value: "Escalated", label: "Escalated" }]} />
         <FormField
           label="Sort"
           name="sort"

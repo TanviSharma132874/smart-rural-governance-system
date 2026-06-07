@@ -12,6 +12,37 @@ import {
 import { certificateApplySchema } from "../../utils/validationSchemas";
 import FormField from "../common/FormField";
 
+const CERTIFICATE_DETAIL_FIELDS = {
+  "Birth Certificate": [
+    { name: "childName", label: "Child Name" },
+    { name: "dob", label: "Date of Birth", type: "date" },
+    { name: "birthPlace", label: "Birth Place" },
+    { name: "fatherName", label: "Father Name" },
+    { name: "motherName", label: "Mother Name" },
+  ],
+  "Death Certificate": [
+    { name: "deceasedName", label: "Deceased Name" },
+    { name: "dateOfDeath", label: "Date of Death", type: "date" },
+    { name: "causeOfDeath", label: "Cause of Death" },
+  ],
+  "Income Certificate": [
+    { name: "annualIncome", label: "Annual Income" },
+    { name: "occupation", label: "Occupation" },
+    { name: "familyMembers", label: "Family Members" },
+  ],
+  "Residence Certificate": [{ name: "yearsOfResidence", label: "Years of Residence" }],
+  "Marriage Certificate": [
+    { name: "husbandDetails", label: "Husband Details" },
+    { name: "wifeDetails", label: "Wife Details" },
+    { name: "marriageDate", label: "Marriage Date", type: "date" },
+  ],
+  "Disability Certificate": [
+    { name: "disabilityType", label: "Disability Type" },
+    { name: "disabilityPercentage", label: "Disability Percentage" },
+  ],
+  "Senior Citizen Certificate": [{ name: "ageVerification", label: "Age Verification" }],
+};
+
 function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
   const [files, setFiles] = useState([]);
   const {
@@ -52,6 +83,7 @@ function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
     const mapped = CERTIFICATE_TYPE_DEPARTMENTS[certificateType] || [];
     return mapped.length ? mapped : GOVERNMENT_DEPARTMENTS;
   }, [certificateType]);
+  const detailFields = useMemo(() => CERTIFICATE_DETAIL_FIELDS[certificateType] || [], [certificateType]);
   const fileSummary = useMemo(() => files.map((file) => file.name).join(", "), [files]);
 
   useEffect(() => {
@@ -76,6 +108,18 @@ function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
         payload.append(key, value);
       }
     });
+
+    const certificateDetails = detailFields.reduce((accumulator, field) => {
+      const value = form[field.name];
+      if (value !== undefined && value !== "") {
+        accumulator[field.label] = value;
+      }
+      return accumulator;
+    }, {});
+
+    if (Object.keys(certificateDetails).length) {
+      payload.append("certificateDetails", JSON.stringify(certificateDetails));
+    }
 
     files.forEach((file) => payload.append("documents", file));
 
@@ -136,6 +180,16 @@ function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
             placeholder="Municipality or corporation"
           />
         )}
+        {detailFields.map((field) => (
+          <FormField
+            key={field.name}
+            label={field.label}
+            name={field.name}
+            type={field.type}
+            registration={register(field.name)}
+            placeholder={field.label}
+          />
+        ))}
         <FormField
           label="Remarks"
           name="remarks"

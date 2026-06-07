@@ -1,9 +1,12 @@
 const { body, param, query } = require("express-validator");
 const {
   COMPLAINT_CATEGORIES,
+  COMPLAINT_CATEGORY_DEPARTMENTS,
   COMPLAINT_PRIORITIES,
   COMPLAINT_SORT_OPTIONS,
   COMPLAINT_STATUSES,
+  COMPLAINT_SUBCATEGORY_MAP,
+  GOVERNMENT_DEPARTMENTS,
   JURISDICTION_TYPES,
 } = require("../config/constants");
 
@@ -26,12 +29,25 @@ const createComplaintValidator = [
     .trim()
     .notEmpty()
     .withMessage("Complaint category is required")
-    .isLength({ max: 100 })
-    .withMessage("Complaint category cannot exceed 100 characters"),
+    .isIn(COMPLAINT_CATEGORIES)
+    .withMessage(`Complaint category must be one of: ${COMPLAINT_CATEGORIES.join(", ")}`),
+  body("subcategory")
+    .trim()
+    .notEmpty()
+    .withMessage("Complaint subcategory is required")
+    .custom((value, { req }) => {
+      const allowed = COMPLAINT_SUBCATEGORY_MAP[req.body.category] || [];
+      if (allowed.length && !allowed.includes(value)) {
+        throw new Error(`Complaint subcategory must match the selected category`);
+      }
+      return true;
+    }),
   body("priority")
     .optional()
     .isIn(COMPLAINT_PRIORITIES)
     .withMessage(`Priority must be one of: ${COMPLAINT_PRIORITIES.join(", ")}`),
+  body("wardNumber").optional().trim().isLength({ max: 50 }).withMessage("Ward number cannot exceed 50 characters"),
+  body("citizenRemarks").optional().trim().isLength({ max: 1000 }).withMessage("Citizen remarks cannot exceed 1000 characters"),
   body("jurisdictionType")
     .optional()
     .isIn(JURISDICTION_TYPES)
@@ -65,9 +81,21 @@ const getComplaintsValidator = [
     .withMessage(`Priority must be one of: ${COMPLAINT_PRIORITIES.join(", ")}`),
   query("category")
     .optional()
+    .isIn(COMPLAINT_CATEGORIES)
+    .withMessage(`Category must be one of: ${COMPLAINT_CATEGORIES.join(", ")}`),
+  query("subcategory")
+    .optional()
     .trim()
     .isLength({ max: 100 })
-    .withMessage("Category cannot exceed 100 characters"),
+    .withMessage("Subcategory cannot exceed 100 characters"),
+  query("responsibleDepartment")
+    .optional()
+    .isIn(GOVERNMENT_DEPARTMENTS)
+    .withMessage(`Department must be one of: ${GOVERNMENT_DEPARTMENTS.join(", ")}`),
+  query("escalationStatus")
+    .optional()
+    .isIn(["Normal", "Escalated"])
+    .withMessage("Escalation status must be Normal or Escalated"),
   query("search")
     .optional()
     .trim()
@@ -94,6 +122,14 @@ const updateComplaintStatusValidator = [
     .optional()
     .isIn(COMPLAINT_PRIORITIES)
     .withMessage(`Priority must be one of: ${COMPLAINT_PRIORITIES.join(", ")}`),
+  body("officerRemarks").optional().trim().isLength({ max: 1000 }).withMessage("Officer remarks cannot exceed 1000 characters"),
+  body("resolutionNotes").optional().trim().isLength({ max: 2000 }).withMessage("Resolution notes cannot exceed 2000 characters"),
+  body("status").custom((value, { req }) => {
+    if (value === "Resolved" && !req.body.resolutionNotes?.trim()) {
+      throw new Error("Resolution notes are required when resolving a complaint");
+    }
+    return true;
+  }),
 ];
 
 const assignComplaintValidator = [
@@ -115,4 +151,5 @@ module.exports = {
   statusValues: COMPLAINT_STATUSES,
   sortValues: COMPLAINT_SORT_OPTIONS,
   complaintCategories: COMPLAINT_CATEGORIES,
+  complaintCategoryDepartments: COMPLAINT_CATEGORY_DEPARTMENTS,
 };

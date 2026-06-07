@@ -9,6 +9,10 @@ const registerVolunteerValidator = [
   body("phone").optional().trim().isLength({ min: 6, max: 20 }).withMessage("Phone number must be between 6 and 20 characters"),
   body("district").optional().trim(),
   body("jurisdictionType").optional().isIn(JURISDICTION_TYPES).withMessage(`Jurisdiction type must be one of: ${JURISDICTION_TYPES.join(", ")}`),
+  body("bloodGroup").optional().trim().isLength({ max: 10 }).withMessage("Blood group cannot exceed 10 characters"),
+  body("experience").optional().trim().isLength({ max: 200 }).withMessage("Experience cannot exceed 200 characters"),
+  body("emergencyContact").optional().trim().isLength({ max: 100 }).withMessage("Emergency contact cannot exceed 100 characters"),
+  body("certifications").optional(),
   body("skills")
     .custom((value) => {
       const items = Array.isArray(value) ? value : [value];

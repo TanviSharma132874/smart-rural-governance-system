@@ -10,6 +10,7 @@ import LoaderPanel from "../components/common/LoaderPanel";
 import PaginationControls from "../components/common/PaginationControls";
 import StatusBadge from "../components/common/StatusBadge";
 import { useAppSelector } from "../redux/hooks";
+import { connectLiveUpdates, disconnectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
 import resourceService from "../services/resourceService";
 import { EMERGENCY_DEPARTMENTS, JURISDICTION_TYPES, RESOURCE_STATUSES, RESOURCE_TYPES } from "../utils/constants";
 import { getApiErrorMessage } from "../utils/formatters";
@@ -36,6 +37,7 @@ function ResourcesPage() {
     resolver: zodResolver(resourceSchema),
     defaultValues: {
       resourceType: "Food Packets",
+      resourceCategory: "",
       quantity: 0,
       availableQuantity: 0,
       locationAddress: "",
@@ -80,6 +82,42 @@ function ResourcesPage() {
     loadResources();
   }, [canManage, page, resourceTypeFilter, statusFilter]);
 
+  useEffect(() => {
+    if (!canManage) {
+      return undefined;
+    }
+
+    const socket = connectLiveUpdates({
+      userId: user?.id,
+      role: user?.role,
+      department: user?.department,
+      state: user?.state,
+      district: user?.district,
+      jurisdictionType: user?.jurisdictionType,
+      village: user?.village,
+      municipality: user?.municipality,
+    });
+
+    const handleResourceUpdated = async () => {
+      const response = await resourceService.list({
+        page,
+        limit: 10,
+        ...(resourceTypeFilter ? { resourceType: resourceTypeFilter } : {}),
+        ...(statusFilter ? { status: statusFilter } : {}),
+      });
+      setRecords(response.data);
+      setPagination(response.pagination || { page: 1, totalPages: 0, totalResources: 0 });
+    };
+
+    socket.on("resource:updated", handleResourceUpdated);
+
+    return () => {
+      const activeSocket = getLiveUpdatesSocket();
+      activeSocket?.off("resource:updated", handleResourceUpdated);
+      disconnectLiveUpdates();
+    };
+  }, [canManage, page, resourceTypeFilter, statusFilter, user]);
+
   const onSubmit = async (form) => {
     setBusy(true);
 
@@ -120,6 +158,7 @@ function ResourcesPage() {
           <h2 className="mt-2 font-display text-2xl text-ink-950">Add a response resource</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <FormField label="Resource Type" name="resourceType" as="select" registration={register("resourceType")} error={errors.resourceType?.message} options={RESOURCE_TYPES.map((item) => ({ value: item, label: item }))} />
+            <FormField label="Category" name="resourceCategory" registration={register("resourceCategory")} error={errors.resourceCategory?.message} />
             <FormField label="Department" name="department" as="select" registration={register("department")} error={errors.department?.message} options={EMERGENCY_DEPARTMENTS.map((item) => ({ value: item, label: item }))} />
             <FormField label="Quantity" name="quantity" type="number" registration={register("quantity", { valueAsNumber: true })} error={errors.quantity?.message} />
             <FormField label="Available Quantity" name="availableQuantity" type="number" registration={register("availableQuantity", { valueAsNumber: true })} error={errors.availableQuantity?.message} />
@@ -161,6 +200,7 @@ function ResourcesPage() {
               <DataTable
                 columns={[
                   { key: "resourceType", label: "Type" },
+                  { key: "resourceCategory", label: "Category", render: (row) => row.resourceCategory || "-" },
                   {
                     key: "stock",
                     label: "Stock",
@@ -175,6 +215,11 @@ function ResourcesPage() {
                     key: "department",
                     label: "Department",
                     render: (row) => row.department,
+                  },
+                  {
+                    key: "lastAllocationAt",
+                    label: "Last Allocation",
+                    render: (row) => (row.lastAllocationAt ? new Date(row.lastAllocationAt).toLocaleDateString("en-IN") : "Not allocated"),
                   },
                 ]}
                 rows={records}

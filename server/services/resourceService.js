@@ -1,6 +1,7 @@
 const Resource = require("../models/Resource");
 const AppError = require("../utils/AppError");
 const logger = require("../utils/logger");
+const { emitRealtimeEvent } = require("../sockets");
 const { OFFICER_ROLES } = require("../config/constants");
 
 const formatUser = (user) => {
@@ -20,6 +21,7 @@ const formatUser = (user) => {
 const formatResource = (resource) => ({
   id: resource._id,
   resourceType: resource.resourceType,
+  resourceCategory: resource.resourceCategory,
   quantity: resource.quantity,
   availableQuantity: resource.availableQuantity,
   status: resource.status,
@@ -39,6 +41,14 @@ const formatResource = (resource) => ({
     updatedBy: formatUser(entry.updatedBy),
     updatedAt: entry.updatedAt,
   })),
+  allocationHistory: (resource.allocationHistory || []).map((entry) => ({
+    emergency: entry.emergency,
+    quantity: entry.quantity,
+    allocatedBy: formatUser(entry.allocatedBy),
+    allocatedAt: entry.allocatedAt,
+    remarks: entry.remarks,
+  })),
+  lastAllocationAt: resource.lastAllocationAt,
   createdAt: resource.createdAt,
   updatedAt: resource.updatedAt,
 });
@@ -79,6 +89,7 @@ const createResource = async (payload, user) => {
 
   const resource = await Resource.create({
     resourceType: payload.resourceType,
+    resourceCategory: payload.resourceCategory || payload.resourceType,
     quantity,
     availableQuantity,
     status: availableQuantity === 0 ? "Depleted" : "Available",
@@ -111,6 +122,12 @@ const createResource = async (payload, user) => {
     type: resource.resourceType,
     district: resource.district,
   });
+
+  emitRealtimeEvent(
+    [`district:${resource.district}`, `department:${resource.department}`],
+    "resource:updated",
+    { resource: formatResource(resource) }
+  );
 
   return formatResource(resource);
 };
@@ -154,6 +171,9 @@ const updateResource = async (resourceId, payload, user) => {
 
   resource.quantity = nextQuantity;
   resource.availableQuantity = nextAvailable;
+  if (payload.resourceCategory !== undefined) {
+    resource.resourceCategory = payload.resourceCategory;
+  }
   resource.status = payload.status || (nextAvailable === 0 ? "Depleted" : "Available");
   resource.auditHistory.push({
     action: "Resource inventory updated",
@@ -163,6 +183,12 @@ const updateResource = async (resourceId, payload, user) => {
   });
   await resource.save();
   await resource.populate([{ path: "managedBy", select: "name email role department" }, { path: "auditHistory.updatedBy", select: "name email role department" }]);
+
+  emitRealtimeEvent(
+    [`district:${resource.district}`, `department:${resource.department}`],
+    "resource:updated",
+    { resource: formatResource(resource) }
+  );
 
   return formatResource(resource);
 };

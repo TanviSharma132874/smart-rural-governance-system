@@ -13,6 +13,32 @@ const statusHistorySchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    action: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    remarks: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 1000,
+    },
+    resolutionNotes: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 2000,
+    },
+    resolutionImages: {
+      type: [String],
+      default: [],
+    },
+    responsibleDepartment: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     updatedAt: {
       type: Date,
       default: Date.now,
@@ -43,6 +69,12 @@ const complaintSchema = new mongoose.Schema(
       required: [true, "Complaint category is required"],
       trim: true,
     },
+    subcategory: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [100, "Complaint subcategory cannot exceed 100 characters"],
+    },
     priority: {
       type: String,
       enum: COMPLAINT_PRIORITIES,
@@ -64,6 +96,40 @@ const complaintSchema = new mongoose.Schema(
       default: null,
     },
     images: {
+      type: [String],
+      default: [],
+    },
+    responsibleDepartment: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
+    wardNumber: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [50, "Ward number cannot exceed 50 characters"],
+    },
+    citizenRemarks: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [1000, "Citizen remarks cannot exceed 1000 characters"],
+    },
+    officerRemarks: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [1000, "Officer remarks cannot exceed 1000 characters"],
+    },
+    resolutionNotes: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [2000, "Resolution notes cannot exceed 2000 characters"],
+    },
+    resolutionImages: {
       type: [String],
       default: [],
     },
@@ -163,6 +229,7 @@ complaintSchema.index({ category: 1 });
 complaintSchema.index({ createdAt: -1 });
 complaintSchema.index({ citizenId: 1 });
 complaintSchema.index({ assignedOfficer: 1 });
+complaintSchema.index({ responsibleDepartment: 1, status: 1, district: 1 });
 complaintSchema.index({ category: 1, status: 1, priority: 1 });
 complaintSchema.index({ title: "text", description: "text" });
 complaintSchema.index({ state: 1, district: 1, tehsil: 1, village: 1, municipality: 1 });

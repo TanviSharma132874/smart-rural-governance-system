@@ -9,6 +9,7 @@ import LoaderPanel from "../components/common/LoaderPanel";
 import PaginationControls from "../components/common/PaginationControls";
 import StatusBadge from "../components/common/StatusBadge";
 import { useAppSelector } from "../redux/hooks";
+import { connectLiveUpdates, disconnectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
 import volunteerService from "../services/volunteerService";
 import { JURISDICTION_TYPES, VOLUNTEER_APPROVAL_STATUSES, VOLUNTEER_AVAILABILITY, VOLUNTEER_SKILLS } from "../utils/constants";
 import { getApiErrorMessage } from "../utils/formatters";
@@ -41,6 +42,10 @@ function VolunteersPage() {
       municipality: user?.municipality || "",
       availabilityStatus: "Available",
       skills: ["Medical"],
+      bloodGroup: "",
+      experience: "",
+      emergencyContact: "",
+      certifications: "",
     },
   });
 
@@ -70,6 +75,41 @@ function VolunteersPage() {
 
     loadVolunteers();
   }, [approvalFilter, isCitizenFacing, page]);
+
+  useEffect(() => {
+    const socket = connectLiveUpdates({
+      userId: user?.id,
+      role: user?.role,
+      department: user?.department,
+      state: user?.state,
+      district: user?.district,
+      jurisdictionType: user?.jurisdictionType,
+      village: user?.village,
+      municipality: user?.municipality,
+    });
+
+    const handleVolunteerApproved = async ({ volunteer }) => {
+      if (isCitizenFacing) {
+        if (profile?.id === volunteer.id) {
+          const response = await volunteerService.getProfile();
+          setProfile(response.volunteer);
+        }
+      } else {
+        const response = await volunteerService.list({ page, limit: 10, ...(approvalFilter ? { approvalStatus: approvalFilter } : {}) });
+        setRecords(response.data);
+        setPagination(response.pagination || { page: 1, totalPages: 0, totalVolunteers: 0 });
+      }
+      toast.success(`Volunteer updated: ${volunteer.approvalStatus}`);
+    };
+
+    socket.on("volunteer:approved", handleVolunteerApproved);
+
+    return () => {
+      const activeSocket = getLiveUpdatesSocket();
+      activeSocket?.off("volunteer:approved", handleVolunteerApproved);
+      disconnectLiveUpdates();
+    };
+  }, [approvalFilter, isCitizenFacing, page, profile?.id, user]);
 
   const onSubmit = async (form) => {
     setBusy(true);
@@ -111,7 +151,13 @@ function VolunteersPage() {
                 <StatusBadge value={profile.availabilityStatus} />
               </div>
             </div>
-            <p className="mt-4 text-sm text-ink-800">{profile.skills.join(", ")}</p>
+            <div className="mt-4 space-y-2 text-sm text-ink-800">
+              <p>{profile.skills.join(", ")}</p>
+              {profile.bloodGroup ? <p><span className="font-semibold text-ink-950">Blood Group:</span> {profile.bloodGroup}</p> : null}
+              {profile.experience ? <p><span className="font-semibold text-ink-950">Experience:</span> {profile.experience}</p> : null}
+              {profile.emergencyContact ? <p><span className="font-semibold text-ink-950">Emergency Contact:</span> {profile.emergencyContact}</p> : null}
+              {profile.certifications?.length ? <p><span className="font-semibold text-ink-950">Certifications:</span> {profile.certifications.join(", ")}</p> : null}
+            </div>
           </section>
         ) : (
           <form className="glass-panel rounded-[32px] border border-white/70 bg-white/92 p-5" onSubmit={handleSubmit(onSubmit)}>
@@ -123,8 +169,12 @@ function VolunteersPage() {
               <FormField label="Tehsil / Block" name="tehsil" registration={register("tehsil")} error={errors.tehsil?.message} />
               <FormField label="Village" name="village" registration={register("village")} error={errors.village?.message} />
               <FormField label="Municipality" name="municipality" registration={register("municipality")} error={errors.municipality?.message} />
+              <FormField label="Blood Group" name="bloodGroup" registration={register("bloodGroup")} error={errors.bloodGroup?.message} />
+              <FormField label="Emergency Contact" name="emergencyContact" registration={register("emergencyContact")} error={errors.emergencyContact?.message} />
               <FormField label="Availability" name="availabilityStatus" as="select" registration={register("availabilityStatus")} error={errors.availabilityStatus?.message} options={VOLUNTEER_AVAILABILITY.map((item) => ({ value: item, label: item }))} />
               <FormField label="Primary Skill" name="skills" as="select" registration={register("skills")} error={errors.skills?.message} options={VOLUNTEER_SKILLS.map((item) => ({ value: item, label: item }))} className="md:col-span-2" />
+              <FormField label="Experience" name="experience" registration={register("experience")} error={errors.experience?.message} className="md:col-span-2" />
+              <FormField label="Certifications" name="certifications" registration={register("certifications")} error={errors.certifications?.message} placeholder="Comma separated certifications" className="md:col-span-2" />
             </div>
             <button type="submit" disabled={busy} className="mt-5 rounded-full bg-ink-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-leaf-600 disabled:opacity-60">
               Submit Volunteer Profile
@@ -160,6 +210,7 @@ function VolunteersPage() {
               <div>
                 <p className="font-semibold text-ink-950">{row.name}</p>
                 <p className="mt-1 text-xs text-ink-800">{row.skills.join(", ")}</p>
+                {row.bloodGroup ? <p className="mt-1 text-xs text-ink-800">Blood Group: {row.bloodGroup}</p> : null}
               </div>
             ),
           },

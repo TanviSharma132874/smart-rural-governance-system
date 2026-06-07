@@ -32,13 +32,6 @@ function SidebarNav() {
           </NavLink>
         ))}
       </nav>
-
-      <div className="mt-8 rounded-[26px] bg-gradient-to-br from-amber-200 via-amber-100 to-white p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ink-900/70">Workflow Note</p>
-        <p className="mt-3 text-sm leading-6 text-ink-900">
-          Complaints, certificates, and emergency operations now share the same role-aware governance shell.
-        </p>
-      </div>
     </aside>
   );
 }

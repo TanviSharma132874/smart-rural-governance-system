@@ -6,6 +6,7 @@ const resourceIdValidator = [param("id").isMongoId().withMessage("Must be a vali
 
 const createResourceValidator = [
   body("resourceType").isIn(RESOURCE_TYPES).withMessage(`Resource type must be one of: ${RESOURCE_TYPES.join(", ")}`),
+  body("resourceCategory").optional().trim().isLength({ max: 100 }).withMessage("Resource category cannot exceed 100 characters"),
   body("quantity").isInt({ min: 0 }).withMessage("Quantity must be zero or more"),
   body("availableQuantity").optional().isInt({ min: 0 }).withMessage("Available quantity must be zero or more"),
   body("locationAddress").trim().notEmpty().withMessage("Location address is required"),
@@ -28,6 +29,7 @@ const resourceListValidator = [
 
 const updateResourceValidator = [
   ...resourceIdValidator,
+  body("resourceCategory").optional().trim().isLength({ max: 100 }).withMessage("Resource category cannot exceed 100 characters"),
   body("quantity").optional().isInt({ min: 0 }).withMessage("Quantity must be zero or more"),
   body("availableQuantity").optional().isInt({ min: 0 }).withMessage("Available quantity must be zero or more"),
   body("status").optional().isIn(RESOURCE_STATUSES).withMessage(`Status must be one of: ${RESOURCE_STATUSES.join(", ")}`),

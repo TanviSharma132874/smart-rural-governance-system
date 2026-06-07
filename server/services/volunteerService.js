@@ -20,6 +20,10 @@ const formatVolunteer = (volunteer) => ({
   village: volunteer.village,
   municipality: volunteer.municipality,
   skills: volunteer.skills,
+  bloodGroup: volunteer.bloodGroup,
+  experience: volunteer.experience,
+  emergencyContact: volunteer.emergencyContact,
+  certifications: volunteer.certifications,
   availabilityStatus: volunteer.availabilityStatus,
   approvalStatus: volunteer.approvalStatus,
   approvedBy: volunteer.approvedBy
@@ -47,6 +51,12 @@ const registerVolunteer = async (payload, user) => {
   }
 
   const skills = Array.isArray(payload.skills) ? payload.skills : [payload.skills].filter(Boolean);
+  const certifications = Array.isArray(payload.certifications)
+    ? payload.certifications.filter(Boolean)
+    : String(payload.certifications || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
 
   const volunteer = await Volunteer.create({
     user: user.id,
@@ -58,6 +68,10 @@ const registerVolunteer = async (payload, user) => {
     village: payload.village || user.village || "",
     municipality: payload.municipality || user.municipality || "",
     skills,
+    bloodGroup: payload.bloodGroup || "",
+    experience: payload.experience || "",
+    emergencyContact: payload.emergencyContact || "",
+    certifications,
     availabilityStatus: payload.availabilityStatus || "Available",
   });
 

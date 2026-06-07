@@ -16,6 +16,9 @@ function ComplaintDetailsCard({
 }) {
   const [nextStatus, setNextStatus] = useState("");
   const [nextPriority, setNextPriority] = useState("");
+  const [officerRemarks, setOfficerRemarks] = useState("");
+  const [resolutionNotes, setResolutionNotes] = useState("");
+  const [resolutionFiles, setResolutionFiles] = useState([]);
   const [assignedOfficer, setAssignedOfficer] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const transitions = useMemo(() => getAllowedTransitions(complaint?.status), [complaint?.status]);
@@ -34,10 +37,18 @@ function ComplaintDetailsCard({
       return;
     }
 
-    onStatusUpdate(complaint.id, {
-      status: nextStatus,
-      priority: nextPriority || complaint.priority,
-    });
+    const payload = new FormData();
+    payload.append("status", nextStatus);
+    payload.append("priority", nextPriority || complaint.priority);
+    if (officerRemarks) {
+      payload.append("officerRemarks", officerRemarks);
+    }
+    if (resolutionNotes) {
+      payload.append("resolutionNotes", resolutionNotes);
+    }
+    resolutionFiles.forEach((file) => payload.append("resolutionImages", file));
+
+    onStatusUpdate(complaint.id, payload);
   };
 
   const handleAssignSubmit = (event) => {
@@ -59,16 +70,19 @@ function ComplaintDetailsCard({
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-leaf-600">Complaint Detail</p>
           <h2 className="mt-2 font-display text-2xl text-ink-950">{complaint.title}</h2>
           <p className="mt-2 text-sm leading-6 text-ink-800">{complaint.description}</p>
+          {complaint.citizenRemarks ? <p className="mt-2 text-sm leading-6 text-amber-900">Citizen remarks: {complaint.citizenRemarks}</p> : null}
         </div>
         <div className="text-right text-sm text-ink-800">
           <p>{getRelativeTime(complaint.createdAt)}</p>
           <p className="mt-1 font-medium">Category: {complaint.category}</p>
+          <p className="mt-1 font-medium">Subcategory: {complaint.subcategory || "-"}</p>
         </div>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
         <StatusBadge value={complaint.status} />
         <StatusBadge type="priority" value={complaint.priority} />
+        {complaint.isEscalated ? <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-900">Escalated for oversight</span> : null}
         <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-900">
           {getPriorityLabel(complaint.priority)} priority workflow
         </span>
@@ -92,6 +106,14 @@ function ComplaintDetailsCard({
             <p>
               <span className="font-semibold text-ink-950">Assigned Officer:</span>{" "}
               {complaint.assignedOfficer?.name || "Unassigned"}
+            </p>
+            <p>
+              <span className="font-semibold text-ink-950">Responsible Department:</span>{" "}
+              {complaint.responsibleDepartment || "-"}
+            </p>
+            <p>
+              <span className="font-semibold text-ink-950">Ward Number:</span>{" "}
+              {complaint.wardNumber || "-"}
             </p>
             <p>
               <span className="font-semibold text-ink-950">Location:</span>{" "}
@@ -122,6 +144,25 @@ function ComplaintDetailsCard({
         </div>
       </div>
 
+      {(complaint.officerRemarks || complaint.resolutionNotes || complaint.resolutionImages?.length) ? (
+        <div className="mt-6 rounded-[26px] bg-slate-50 p-4">
+          <h3 className="font-display text-lg text-ink-950">Officer Resolution Summary</h3>
+          <div className="mt-3 space-y-3 text-sm text-ink-800">
+            {complaint.officerRemarks ? <p><span className="font-semibold text-ink-950">Officer Remarks:</span> {complaint.officerRemarks}</p> : null}
+            {complaint.resolutionNotes ? <p><span className="font-semibold text-ink-950">Resolution Notes:</span> {complaint.resolutionNotes}</p> : null}
+            {complaint.resolutionImages?.length ? (
+              <div className="grid grid-cols-2 gap-3">
+                {complaint.resolutionImages.map((image) => (
+                  <a key={image} href={`${assetBaseUrl}${image}`} target="_blank" rel="noreferrer" className="overflow-hidden rounded-2xl border border-slate-200">
+                    <img src={`${assetBaseUrl}${image}`} alt="Resolution evidence" className="h-28 w-full object-cover" />
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {canManage ? (
         <div className="mt-6 grid gap-4 xl:grid-cols-2">
           <form className="rounded-[26px] border border-slate-200 p-4" onSubmit={handleStatusSubmit}>
@@ -149,6 +190,32 @@ function ComplaintDetailsCard({
                   label: priority,
                 }))}
               />
+            </div>
+            <div className="mt-4 grid gap-4">
+              <FormField
+                label="Officer Remarks"
+                name="officerRemarks"
+                as="textarea"
+                value={officerRemarks}
+                onChange={(event) => setOfficerRemarks(event.target.value)}
+                placeholder="Add officer remarks or progress updates."
+              />
+              {nextStatus === "Resolved" ? (
+                <>
+                  <FormField
+                    label="Resolution Notes"
+                    name="resolutionNotes"
+                    as="textarea"
+                    value={resolutionNotes}
+                    onChange={(event) => setResolutionNotes(event.target.value)}
+                    placeholder="Document how the complaint was resolved."
+                  />
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-ink-900">Resolution Images</span>
+                    <input type="file" multiple accept="image/*" onChange={(event) => setResolutionFiles(Array.from(event.target.files || []))} className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-ink-900" />
+                  </label>
+                </>
+              ) : null}
             </div>
             <button
               type="submit"
@@ -209,9 +276,22 @@ function ComplaintDetailsCard({
                     {getRelativeTime(entry.updatedAt)}
                   </p>
                 </div>
+                {entry.action ? <p className="mt-3 text-sm font-semibold text-ink-950">{entry.action}</p> : null}
                 <p className="mt-3 text-sm text-ink-900">
                   Updated by: <span className="font-bold">{entry.updatedBy?.name || "System"}</span>
                 </p>
+                {entry.responsibleDepartment ? <p className="mt-2 text-sm text-ink-800">Department: {entry.responsibleDepartment}</p> : null}
+                {entry.remarks ? <p className="mt-2 text-sm text-ink-800">Remarks: {entry.remarks}</p> : null}
+                {entry.resolutionNotes ? <p className="mt-2 text-sm text-ink-800">Resolution Notes: {entry.resolutionNotes}</p> : null}
+                {entry.resolutionImages?.length ? (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {entry.resolutionImages.map((image) => (
+                      <a key={image} href={`${assetBaseUrl}${image}`} target="_blank" rel="noreferrer" className="overflow-hidden rounded-2xl border border-slate-200">
+                        <img src={`${assetBaseUrl}${image}`} alt="Complaint timeline evidence" className="h-24 w-full object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ))
           ) : (

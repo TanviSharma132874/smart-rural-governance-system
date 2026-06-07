@@ -16,12 +16,15 @@ const initialFilters = {
   status: "",
   priority: "",
   category: "",
+  subcategory: "",
+  responsibleDepartment: "",
+  escalationStatus: "",
   sort: "latest",
 };
 
 function ComplaintPage() {
   const user = useAppSelector((state) => state.auth.user);
-  const canManage = ["panchayatOfficer", "districtAdmin", "superAdmin"].includes(user?.role);
+  const canManage = ["panchayatOfficer", "departmentOfficer", "districtAdmin", "stateAdmin", "superAdmin"].includes(user?.role);
   const [filters, setFilters] = useState(initialFilters);
   const [page, setPage] = useState(1);
   const [complaints, setComplaints] = useState([]);
@@ -40,9 +43,12 @@ function ComplaintPage() {
       status: filters.status,
       priority: filters.priority,
       category: filters.category,
+      subcategory: filters.subcategory,
+      responsibleDepartment: filters.responsibleDepartment,
+      escalationStatus: filters.escalationStatus,
       search: deferredSearch,
     }),
-    [deferredSearch, filters.category, filters.priority, filters.sort, filters.status, page]
+    [deferredSearch, filters.category, filters.escalationStatus, filters.priority, filters.responsibleDepartment, filters.sort, filters.status, filters.subcategory, page]
   );
 
   const loadSelectedComplaint = useCallback(async (complaintId) => {

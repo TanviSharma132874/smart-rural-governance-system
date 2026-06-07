@@ -71,6 +71,27 @@ const volunteerSchema = new mongoose.Schema(
       enum: VOLUNTEER_SKILLS,
       default: [],
     },
+    bloodGroup: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    experience: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 200,
+    },
+    emergencyContact: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 100,
+    },
+    certifications: {
+      type: [String],
+      default: [],
+    },
     availabilityStatus: {
       type: String,
       enum: VOLUNTEER_AVAILABILITY,

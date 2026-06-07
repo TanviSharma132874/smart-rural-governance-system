@@ -29,6 +29,7 @@ function ComplaintList({ complaints, selectedId, onSelect, pagination, page, onP
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ink-800/70">{complaint.category}</p>
                   <h3 className="mt-2 font-display text-xl text-ink-950">{complaint.title}</h3>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-leaf-700">{complaint.subcategory}</p>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-ink-800">{complaint.description}</p>
                 </div>
                 <div className="text-right text-xs text-ink-800">
@@ -40,6 +41,7 @@ function ComplaintList({ complaints, selectedId, onSelect, pagination, page, onP
               <div className="mt-4 flex flex-wrap gap-2">
                 <StatusBadge value={complaint.status} />
                 <StatusBadge type="priority" value={complaint.priority} />
+                {complaint.isEscalated ? <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-900">Escalated</span> : null}
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-ink-800">
                   {complaint.images?.length || 0} image(s)
                 </span>
@@ -51,6 +53,12 @@ function ComplaintList({ complaints, selectedId, onSelect, pagination, page, onP
                 </p>
                 <p>
                   <span className="font-semibold text-ink-950">Assigned:</span> {complaint.assignedOfficer?.name || "Unassigned"}
+                </p>
+                <p>
+                  <span className="font-semibold text-ink-950">Department:</span> {complaint.responsibleDepartment || "-"}
+                </p>
+                <p>
+                  <span className="font-semibold text-ink-950">Ward:</span> {complaint.wardNumber || "-"}
                 </p>
               </div>
             </button>

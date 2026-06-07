@@ -11,6 +11,34 @@ const userSchema = new mongoose.Schema(
       minlength: [2, "Name must be at least 2 characters long"],
       maxlength: [100, "Name cannot exceed 100 characters"],
     },
+    fatherName: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [100, "Father's name cannot exceed 100 characters"],
+    },
+    motherName: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [100, "Mother's name cannot exceed 100 characters"],
+    },
+    dateOfBirth: {
+      type: Date,
+      default: null,
+    },
+    gender: {
+      type: String,
+      enum: ["Male", "Female", "Other", ""],
+      default: "",
+      trim: true,
+    },
+    aadhaarNumber: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [20, "Aadhaar number cannot exceed 20 characters"],
+    },
     email: {
       type: String,
       required: [true, "Email is required"],
@@ -51,7 +79,18 @@ const userSchema = new mongoose.Schema(
       required: [true, "Phone number is required"],
       trim: true,
     },
+    address: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [250, "Address cannot exceed 250 characters"],
+    },
     tehsil: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    panchayat: {
       type: String,
       default: "",
       trim: true,
@@ -70,6 +109,35 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
       trim: true,
+    },
+    ward: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    pincode: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [12, "Pincode cannot exceed 12 characters"],
+    },
+    occupation: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [100, "Occupation cannot exceed 100 characters"],
+    },
+    designation: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [100, "Designation cannot exceed 100 characters"],
+    },
+    employeeId: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [50, "Employee ID cannot exceed 50 characters"],
     },
     profileImage: {
       type: String,

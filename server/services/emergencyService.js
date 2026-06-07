@@ -614,6 +614,13 @@ const assignResources = async (emergencyId, payload, user) => {
       remarks: `Allocated to emergency ${emergency.title}`,
       updatedBy: user.id,
     });
+    resource.allocationHistory.push({
+      emergency: emergency._id,
+      quantity,
+      allocatedBy: user.id,
+      remarks: payload.remarks || `Allocated to emergency ${emergency.title}`,
+    });
+    resource.lastAllocationAt = new Date();
     await resource.save();
 
     assignments.push({
@@ -622,6 +629,12 @@ const assignResources = async (emergencyId, payload, user) => {
       quantity,
       allocatedBy: user.id,
     });
+
+    emitRealtimeEvent(
+      [`district:${resource.district}`, `department:${resource.department}`],
+      "resource:updated",
+      { resource: { id: resource._id, resourceType: resource.resourceType, availableQuantity: resource.availableQuantity, status: resource.status } }
+    );
   }
 
   emergency.resourceAssignments.push(...assignments);

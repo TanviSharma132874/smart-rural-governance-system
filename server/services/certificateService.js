@@ -63,6 +63,7 @@ const formatCertificate = (certificate) => ({
   municipality: certificate.municipality,
   status: certificate.status,
   uploadedDocuments: certificate.uploadedDocuments,
+  certificateDetails: certificate.certificateDetails || {},
   remarks: certificate.remarks,
   approvedBy: formatUser(certificate.approvedBy),
   issuedAt: certificate.issuedAt,
@@ -257,6 +258,15 @@ const createHistoryEntry = ({ status, action, remarks, department, userId }) => 
 
 const applyCertificate = async (payload, user, files = []) => {
   ensureDepartmentAccess({ role: "departmentOfficer", department: payload.department }, payload.certificateType, payload.department);
+  let certificateDetails = {};
+  if (payload.certificateDetails) {
+    try {
+      certificateDetails =
+        typeof payload.certificateDetails === "string" ? JSON.parse(payload.certificateDetails) : payload.certificateDetails;
+    } catch (_error) {
+      throw new AppError("Certificate details payload is invalid", 400);
+    }
+  }
   const applicationNumber = await nextApplicationNumber();
   const certificate = await Certificate.create({
     applicant: user.id,
@@ -264,6 +274,7 @@ const applyCertificate = async (payload, user, files = []) => {
     department: payload.department,
     ...buildJurisdiction(payload, user),
     uploadedDocuments: normalizeDocuments(files),
+    certificateDetails,
     remarks: payload.remarks || "",
     applicationNumber,
     statusHistory: [

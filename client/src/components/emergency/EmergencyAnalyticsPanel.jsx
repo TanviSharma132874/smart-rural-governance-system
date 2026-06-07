@@ -10,31 +10,42 @@ function ChartBlock({ title, children }) {
 }
 
 function EmergencyAnalyticsPanel({ analytics }) {
-  if (!analytics) {
+  const typeStats = analytics?.typeStats ?? [];
+  const statusStats = analytics?.statusStats ?? [];
+
+  if (!typeStats.length && !statusStats.length) {
     return null;
   }
 
   return (
     <div className="grid gap-5 xl:grid-cols-2">
       <ChartBlock title="Emergency Types">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={analytics.typeStats}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-            <YAxis allowDecimals={false} />
-            <Tooltip />
-            <Bar dataKey="value" fill="#0f766e" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {typeStats.length ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={typeStats}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="value" fill="#0f766e" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-ink-800">No type analytics available.</div>
+        )}
       </ChartBlock>
 
       <ChartBlock title="Workflow Status">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={analytics.statusStats} dataKey="value" nameKey="label" outerRadius={100} fill="#1d4ed8" label />
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
+        {statusStats.length ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={statusStats} dataKey="value" nameKey="label" outerRadius={100} fill="#1d4ed8" label />
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-ink-800">No workflow analytics available.</div>
+        )}
       </ChartBlock>
     </div>
   );

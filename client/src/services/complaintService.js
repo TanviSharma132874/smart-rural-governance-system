@@ -10,6 +10,11 @@ const complaintService = {
     };
   },
 
+  async getDashboardAnalytics() {
+    const response = await apiClient.get("/complaints/dashboard-analytics");
+    return response.data.data;
+  },
+
   async getComplaintById(complaintId) {
     const response = await apiClient.get(`/complaints/${complaintId}`);
     return response.data.data;
@@ -26,7 +31,12 @@ const complaintService = {
   },
 
   async updateComplaintStatus(complaintId, payload) {
-    const response = await apiClient.patch(`/complaints/${complaintId}/status`, payload);
+    const isFormData = typeof FormData !== "undefined" && payload instanceof FormData;
+    const response = await apiClient.patch(`/complaints/${complaintId}/status`, payload, isFormData ? {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    } : undefined);
     return response.data.data;
   },
 

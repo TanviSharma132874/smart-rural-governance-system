@@ -51,6 +51,18 @@ const buildCertificatePdfBuffer = (certificate) =>
       doc.moveDown(0.4);
     });
 
+    const detailEntries = Object.entries(certificate.certificateDetails || {}).filter(([, value]) => value !== "" && value !== null && value !== undefined);
+    if (detailEntries.length) {
+      doc.moveDown(0.8);
+      doc.font("Helvetica-Bold").fontSize(13).fillColor("#172033").text("Certificate Details");
+      doc.moveDown(0.4);
+      detailEntries.forEach(([label, value]) => {
+        doc.font("Helvetica-Bold").fontSize(11).fillColor("#172033").text(`${label}: `, { continued: true });
+        doc.font("Helvetica").fillColor("#24324d").text(String(value));
+        doc.moveDown(0.3);
+      });
+    }
+
     doc.moveDown(1.4);
     doc.font("Helvetica-Bold").fontSize(13).fillColor("#172033").text("Official Approval Section");
     doc.moveDown(0.5);

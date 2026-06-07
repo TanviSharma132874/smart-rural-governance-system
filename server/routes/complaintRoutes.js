@@ -28,16 +28,24 @@ router.post(
 router.get(
   "/",
   authMiddleware,
-  authorize("citizen", "panchayatOfficer", "districtAdmin", "superAdmin"),
+  authorize("citizen", "panchayatOfficer", "departmentOfficer", "districtAdmin", "stateAdmin", "superAdmin"),
   getComplaintsValidator,
   validateRequest,
   complaintController.getComplaints
 );
 
+router.get(
+  "/dashboard-analytics",
+  authMiddleware,
+  authorize("citizen", "panchayatOfficer", "departmentOfficer", "districtAdmin", "stateAdmin", "superAdmin"),
+  complaintController.getDashboardAnalytics
+);
+
 router.patch(
   "/:id/status",
   authMiddleware,
-  authorize("panchayatOfficer", "districtAdmin", "superAdmin"),
+  authorize("panchayatOfficer", "departmentOfficer", "districtAdmin", "stateAdmin", "superAdmin"),
+  uploadComplaintImages.array("resolutionImages", 5),
   updateComplaintStatusValidator,
   validateRequest,
   complaintController.updateComplaintStatus
@@ -46,7 +54,7 @@ router.patch(
 router.patch(
   "/:id/assign",
   authMiddleware,
-  authorize("panchayatOfficer", "districtAdmin", "superAdmin"),
+  authorize("panchayatOfficer", "departmentOfficer", "districtAdmin", "stateAdmin", "superAdmin"),
   assignComplaintValidator,
   validateRequest,
   complaintController.assignComplaint
@@ -55,7 +63,7 @@ router.patch(
 router.get(
   "/:id",
   authMiddleware,
-  authorize("citizen", "panchayatOfficer", "districtAdmin", "superAdmin"),
+  authorize("citizen", "panchayatOfficer", "departmentOfficer", "districtAdmin", "stateAdmin", "superAdmin"),
   complaintIdValidator,
   validateRequest,
   complaintController.getComplaintById
@@ -64,7 +72,7 @@ router.get(
 router.delete(
   "/:id",
   authMiddleware,
-  authorize("districtAdmin", "superAdmin"),
+  authorize("districtAdmin", "stateAdmin", "superAdmin"),
   complaintIdValidator,
   validateRequest,
   complaintController.deleteComplaint
