@@ -7,22 +7,8 @@ import FormField from "../components/common/FormField";
 import AuthLayout from "../layouts/AuthLayout";
 import { registerUser } from "../redux/slices/authSlice";
 import { useAppDispatch, useAppSelector } from "../redux/hooks";
-import { GOVERNMENT_DEPARTMENTS, JURISDICTION_TYPES, USER_ROLES } from "../utils/constants";
+import { JURISDICTION_TYPES } from "../utils/constants";
 import { registerSchema } from "../utils/validationSchemas";
-
-const roleLabel = (role) => {
-  const labels = {
-    citizen: "Citizen",
-    volunteer: "Volunteer",
-    panchayatOfficer: "Panchayat Officer",
-    departmentOfficer: "Department Officer",
-    districtAdmin: "District Admin",
-    stateAdmin: "State Admin",
-    superAdmin: "Super Admin",
-  };
-
-  return labels[role] || role;
-};
 
 function RegisterPage() {
   const dispatch = useAppDispatch();
@@ -67,10 +53,6 @@ function RegisterPage() {
     control,
     name: "jurisdictionType",
   });
-  const role = useWatch({
-    control,
-    name: "role",
-  });
 
   if (token) {
     return <Navigate to="/dashboard" replace />;
@@ -91,12 +73,13 @@ function RegisterPage() {
   return (
     <AuthLayout
       title="Create an account"
-      subtitle="Register with the role, department, and jurisdiction profile that will govern your access inside the platform."
+      subtitle="Register as a citizen with the jurisdiction profile that will govern your access inside the platform."
       footerText="Already registered?"
       footerLink="/login"
       footerLabel="Login here"
     >
       <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
+        <input type="hidden" value="citizen" {...register("role")} />
         <FormField label="Full Name" name="name" registration={register("name")} error={errors.name?.message} placeholder="Your name" className="md:col-span-2" />
         <FormField label="Father's Name" name="fatherName" registration={register("fatherName")} error={errors.fatherName?.message} placeholder="Father's name" />
         <FormField label="Mother's Name" name="motherName" registration={register("motherName")} error={errors.motherName?.message} placeholder="Mother's name" />
@@ -106,14 +89,6 @@ function RegisterPage() {
         <FormField label="Occupation" name="occupation" registration={register("occupation")} error={errors.occupation?.message} placeholder="Occupation" />
         <FormField label="Email" name="email" type="email" registration={register("email")} error={errors.email?.message} placeholder="you@example.com" />
         <FormField label="Password" name="password" type="password" registration={register("password")} error={errors.password?.message} placeholder="Minimum 6 characters" />
-        <FormField
-          label="Role"
-          name="role"
-          as="select"
-          registration={register("role")}
-          error={errors.role?.message}
-          options={USER_ROLES.map((item) => ({ value: item, label: roleLabel(item) }))}
-        />
         <FormField label="Phone" name="phone" registration={register("phone")} error={errors.phone?.message} placeholder="Contact number" />
         <FormField
           label="Jurisdiction Type"
@@ -142,23 +117,6 @@ function RegisterPage() {
             placeholder="Municipality or corporation"
           />
         )}
-
-        {["departmentOfficer", "panchayatOfficer"].includes(role) ? (
-          <>
-            <FormField
-              label="Department"
-              name="department"
-              as="select"
-              registration={register("department")}
-              error={errors.department?.message}
-              options={[{ value: "", label: "Select department" }, ...GOVERNMENT_DEPARTMENTS.map((item) => ({ value: item, label: item }))]}
-              className="md:col-span-2"
-            />
-            <FormField label="Designation" name="designation" registration={register("designation")} error={errors.designation?.message} placeholder="Officer designation" />
-            <FormField label="Employee ID" name="employeeId" registration={register("employeeId")} error={errors.employeeId?.message} placeholder="Employee ID" />
-          </>
-        ) : null}
-
         {error ? <p className="rounded-2xl bg-alert-100 px-4 py-3 text-sm font-medium text-alert-500 md:col-span-2">{error}</p> : null}
 
         <button

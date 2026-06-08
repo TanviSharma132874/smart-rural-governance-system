@@ -16,7 +16,6 @@ import {
   EMERGENCY_TYPES,
   JURISDICTION_TYPES,
   RESOURCE_TYPES,
-  USER_ROLES,
   VOLUNTEER_APPROVAL_STATUSES,
   VOLUNTEER_AVAILABILITY,
   VOLUNTEER_SKILLS,
@@ -36,7 +35,7 @@ export const registerSchema = z.object({
   aadhaarNumber: z.string().trim().min(12, "Aadhaar number must be at least 12 characters.").max(20, "Aadhaar number cannot exceed 20 characters.").optional().or(z.literal("")),
   email: z.email("Enter a valid email address."),
   password: z.string().min(6, "Password must be at least 6 characters long."),
-  role: z.enum(USER_ROLES),
+  role: z.literal("citizen"),
   department: z.string().optional(),
   designation: z.string().trim().max(100, "Designation cannot exceed 100 characters.").optional().or(z.literal("")),
   employeeId: z.string().trim().max(50, "Employee ID cannot exceed 50 characters.").optional().or(z.literal("")),
@@ -66,22 +65,6 @@ export const registerSchema = z.object({
       code: "custom",
       path: ["municipality"],
       message: "Municipality is required for urban jurisdiction.",
-    });
-  }
-
-  if (["departmentOfficer", "panchayatOfficer"].includes(data.role) && !data.department) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["department"],
-      message: "Department is required for officer registration.",
-    });
-  }
-
-  if (["departmentOfficer", "panchayatOfficer", "districtAdmin", "stateAdmin", "superAdmin"].includes(data.role) && !data.designation) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["designation"],
-      message: "Designation is required for officer registration.",
     });
   }
 });

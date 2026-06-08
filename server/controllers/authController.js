@@ -12,6 +12,16 @@ const register = asyncHandler(async (req, res) => {
   });
 });
 
+const createUser = asyncHandler(async (req, res) => {
+  const user = await authService.createPrivilegedUser(req.body, req.user);
+
+  sendSuccess(res, {
+    statusCode: 201,
+    message: "Privileged user provisioned successfully",
+    data: { user },
+  });
+});
+
 const login = asyncHandler(async (req, res) => {
   const payload = await authService.loginUser(req.body);
 
@@ -34,6 +44,7 @@ const getProfile = asyncHandler(async (req, res) => {
 
 module.exports = {
   register,
+  createUser,
   login,
   getProfile,
 };
