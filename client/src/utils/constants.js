@@ -10,12 +10,22 @@ export const USER_ROLES = [
   "superAdmin",
 ];
 export const JURISDICTION_TYPES = ["Rural", "Urban"];
-export const GOVERNMENT_DEPARTMENTS = [
+export const DEPARTMENTS = [
   "Civil Registration Department",
   "Revenue Department",
   "Local Administration Department",
   "Social Welfare Department",
+  "Health & Medical Services",
+  "Police & Public Safety",
+  "Fire & Emergency Services",
+  "Disaster Management Cell",
+  "Electricity Department",
+  "Water Resources Department",
 ];
+
+export const GOVERNMENT_DEPARTMENTS = DEPARTMENTS;
+export const EMERGENCY_DEPARTMENTS = DEPARTMENTS;
+
 export const COMPLAINT_STATUSES = ["Pending", "In Progress", "Resolved", "Rejected"];
 export const COMPLAINT_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 export const COMPLAINT_CATEGORIES = [
@@ -85,15 +95,7 @@ export const EMERGENCY_TYPES = [
 ];
 export const EMERGENCY_SEVERITIES = ["Low", "Medium", "High", "Critical"];
 export const EMERGENCY_STATUSES = ["Submitted", "Acknowledged", "Assigned", "In Progress", "Resolved", "Closed"];
-export const EMERGENCY_DEPARTMENTS = [
-  "Disaster Management Cell",
-  "Health Department",
-  "Police Department",
-  "Fire Department",
-  "Municipal Corporation",
-  "Panchayat Emergency Team",
-  "Electricity Department",
-];
+
 export const RESOURCE_TYPES = [
   "Food Packets",
   "Water Bottles",

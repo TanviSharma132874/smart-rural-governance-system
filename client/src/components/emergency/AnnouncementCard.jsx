@@ -1,19 +1,48 @@
 import StatusBadge from "../common/StatusBadge";
 
 function AnnouncementCard({ announcement, onPublish, canPublish = false }) {
-  const metadata = [announcement.department, announcement.district, announcement.targetAudience].filter(Boolean);
-
   return (
     <article className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          {announcement.announcementType ? <p className="text-xs font-semibold uppercase tracking-[0.24em] text-leaf-600">{announcement.announcementType}</p> : null}
-          <h3 className="mt-2 font-display text-xl text-ink-950">{announcement.title}</h3>
+          {announcement.announcementType ? (
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-leaf-600">
+              {announcement.announcementType}
+            </p>
+          ) : null}
+
+          <h3 className="mt-2 font-display text-xl text-ink-950">
+            {announcement.title}
+          </h3>
         </div>
+
         <StatusBadge value={announcement.status} />
       </div>
-      <p className="mt-3 text-sm leading-6 text-ink-800">{announcement.message}</p>
-      {metadata.length ? <div className="mt-4 flex flex-wrap gap-3 text-xs text-ink-800">{metadata.map((item) => <span key={item}>{item}</span>)}</div> : null}
+
+      <p className="mt-3 text-sm leading-6 text-ink-800">
+        {announcement.message}
+      </p>
+
+      <div className="mt-4 flex flex-col gap-1 text-xs text-ink-800">
+        {announcement.department ? (
+          <span>
+            <strong>Department:</strong> {announcement.department}
+          </span>
+        ) : null}
+
+        {announcement.district ? (
+          <span>
+            <strong>District:</strong> {announcement.district}
+          </span>
+        ) : null}
+
+        {announcement.targetAudience ? (
+          <span>
+            <strong>Audience:</strong> {announcement.targetAudience}
+          </span>
+        ) : null}
+      </div>
+
       {canPublish && announcement.status !== "Published" ? (
         <button
           type="button"

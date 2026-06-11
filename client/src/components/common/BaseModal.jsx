@@ -1,4 +1,24 @@
+import { useEffect } from "react";
+
 function BaseModal({ isOpen, title, onClose, children }) {
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose?.();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) {
     return null;
   }
@@ -8,6 +28,7 @@ function BaseModal({ isOpen, title, onClose, children }) {
       <div className="glass-panel max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-[32px] border border-white/70 bg-white/94 p-6">
         <div className="flex items-center justify-between gap-4">
           <h3 className="font-display text-2xl text-ink-950">{title}</h3>
+
           <button
             type="button"
             onClick={onClose}
@@ -16,6 +37,7 @@ function BaseModal({ isOpen, title, onClose, children }) {
             Close
           </button>
         </div>
+
         <div className="mt-5">{children}</div>
       </div>
     </div>

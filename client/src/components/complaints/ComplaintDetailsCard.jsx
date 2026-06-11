@@ -1,9 +1,56 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 import { getAllowedTransitions, getPriorityLabel, getRelativeTime } from "../../utils/formatters";
 import BaseModal from "../common/BaseModal";
 import FormField from "../common/FormField";
 import StatusBadge from "../common/StatusBadge";
+import apiClient from "../../api/apiClient";
+
+function ProtectedImage({ src, alt, className }) {
+  const [blobUrl, setBlobUrl] = useState("");
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let currentBlobUrl = "";
+
+    const fetchImage = async () => {
+      if (!src) return;
+      try {
+        const cleanPath = src.startsWith("/api/v1") ? src.replace("/api/v1", "") : src;
+        const response = await apiClient.get(cleanPath, { responseType: "blob" });
+        if (active) {
+          const url = URL.createObjectURL(response.data);
+          currentBlobUrl = url;
+          setBlobUrl(url);
+        }
+      } catch (err) {
+        console.error("Failed to load protected image:", err);
+        if (active) setError(true);
+      }
+    };
+
+    fetchImage();
+    return () => {
+      active = false;
+      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+    };
+  }, [src]);
+
+  if (error) {
+    return (
+      <div className={`${className} flex items-center justify-center bg-slate-100 text-[10px] text-rose-400`}>
+        Failed to load image
+      </div>
+    );
+  }
+
+  if (!blobUrl) {
+    return <div className={`${className} animate-pulse bg-slate-100`} />;
+  }
+
+  return <img src={blobUrl} alt={alt} className={className} />;
+}
 
 function ComplaintDetailsCard({
   complaint,
@@ -21,7 +68,39 @@ function ComplaintDetailsCard({
   const [resolutionFiles, setResolutionFiles] = useState([]);
   const [assignedOfficer, setAssignedOfficer] = useState("");
   const [showHistory, setShowHistory] = useState(false);
-  const transitions = useMemo(() => getAllowedTransitions(complaint?.status), [complaint?.status]);
+  const transitions = useMemo(() => {
+    if (!complaint?.status) return [];
+    
+    // 1. Define Master Transition Mapping (Mirroring Backend)
+    const masterTransitions = {
+      Pending: ["Reviewed", "Rejected"],
+      Reviewed: ["In Progress", "Rejected"],
+      "In Progress": ["Resolved", "Rejected"],
+      Resolved: [],
+      Rejected: [],
+    };
+
+    const rawAllowed = masterTransitions[complaint.status] || [];
+    
+    // 2. Filter based on Role (Workflow Discipline)
+    const role = currentUser?.role;
+    const isAdmin = ["districtAdmin", "stateAdmin", "superAdmin"].includes(role);
+    
+    if (isAdmin) return rawAllowed;
+
+    if (role === "panchayatOfficer") {
+      // Panchayat can only Review or Reject
+      return rawAllowed.filter(s => ["Reviewed", "Rejected"].includes(s));
+    }
+
+    if (role === "departmentOfficer") {
+      // Department can only move Reviewed -> In Progress OR In Progress -> Resolved
+      if (complaint.status === "Pending") return []; // Must be reviewed first
+      return rawAllowed.filter(s => ["In Progress", "Resolved", "Rejected"].includes(s));
+    }
+
+    return [];
+  }, [complaint?.status, currentUser?.role]);
 
   if (!complaint) {
     return (
@@ -60,8 +139,6 @@ function ComplaintDetailsCard({
     onAssignToOfficer(complaint.id, assignedOfficer);
     setAssignedOfficer("");
   };
-
-  const assetBaseUrl = (import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1").replace("/api/v1", "").replace("/api", "");
 
   return (
     <section className="glass-panel rounded-[32px] border border-white/70 bg-white/90 p-6">
@@ -127,15 +204,9 @@ function ComplaintDetailsCard({
           {complaint.images?.length ? (
             <div className="mt-3 grid grid-cols-2 gap-3">
               {complaint.images.map((image) => (
-                <a
-                  key={image}
-                  href={`${assetBaseUrl}${image}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="overflow-hidden rounded-2xl border border-slate-200"
-                >
-                  <img src={`${assetBaseUrl}${image}`} alt={complaint.title} className="h-28 w-full object-cover" />
-                </a>
+                <div key={image} className="overflow-hidden rounded-2xl border border-slate-200">
+                  <ProtectedImage src={image} alt={complaint.title} className="h-28 w-full object-cover" />
+                </div>
               ))}
             </div>
           ) : (
@@ -153,9 +224,9 @@ function ComplaintDetailsCard({
             {complaint.resolutionImages?.length ? (
               <div className="grid grid-cols-2 gap-3">
                 {complaint.resolutionImages.map((image) => (
-                  <a key={image} href={`${assetBaseUrl}${image}`} target="_blank" rel="noreferrer" className="overflow-hidden rounded-2xl border border-slate-200">
-                    <img src={`${assetBaseUrl}${image}`} alt="Resolution evidence" className="h-28 w-full object-cover" />
-                  </a>
+                  <div key={image} className="overflow-hidden rounded-2xl border border-slate-200">
+                    <ProtectedImage src={image} alt="Resolution evidence" className="h-28 w-full object-cover" />
+                  </div>
                 ))}
               </div>
             ) : null}
@@ -286,9 +357,9 @@ function ComplaintDetailsCard({
                 {entry.resolutionImages?.length ? (
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {entry.resolutionImages.map((image) => (
-                      <a key={image} href={`${assetBaseUrl}${image}`} target="_blank" rel="noreferrer" className="overflow-hidden rounded-2xl border border-slate-200">
-                        <img src={`${assetBaseUrl}${image}`} alt="Complaint timeline evidence" className="h-24 w-full object-cover" />
-                      </a>
+                      <div key={image} className="overflow-hidden rounded-2xl border border-slate-200">
+                        <ProtectedImage src={image} alt="Complaint timeline evidence" className="h-24 w-full object-cover" />
+                      </div>
                     ))}
                   </div>
                 ) : null}

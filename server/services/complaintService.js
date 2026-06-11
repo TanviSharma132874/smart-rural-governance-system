@@ -16,7 +16,8 @@ const {
 } = require("../config/constants");
 
 const STATUS_TRANSITIONS = {
-  Pending: ["In Progress", "Rejected"],
+  Pending: ["Reviewed", "Rejected"],
+  Reviewed: ["In Progress", "Rejected"],
   "In Progress": ["Resolved", "Rejected"],
   Resolved: [],
   Rejected: [],
@@ -73,13 +74,13 @@ const formatComplaint = (complaint) => ({
   status: complaint.status,
   citizenId: formatUser(complaint.citizenId),
   assignedOfficer: formatUser(complaint.assignedOfficer),
-  images: complaint.images,
+  images: (complaint.images || []).map((img) => img.replace(/^\/uploads\//, "/api/v1/files/")),
   responsibleDepartment: complaint.responsibleDepartment,
   wardNumber: complaint.wardNumber,
   citizenRemarks: complaint.citizenRemarks,
   officerRemarks: complaint.officerRemarks,
   resolutionNotes: complaint.resolutionNotes,
-  resolutionImages: complaint.resolutionImages,
+  resolutionImages: (complaint.resolutionImages || []).map((img) => img.replace(/^\/uploads\//, "/api/v1/files/")),
   location: complaint.location,
   jurisdictionType: complaint.jurisdictionType,
   state: complaint.state,
@@ -98,7 +99,7 @@ const formatComplaint = (complaint) => ({
     action: entry.action,
     remarks: entry.remarks,
     resolutionNotes: entry.resolutionNotes,
-    resolutionImages: entry.resolutionImages,
+    resolutionImages: (entry.resolutionImages || []).map((img) => img.replace(/^\/uploads\//, "/api/v1/files/")),
     responsibleDepartment: entry.responsibleDepartment,
     updatedBy: formatUser(entry.updatedBy),
     updatedAt: entry.updatedAt,
@@ -823,11 +824,33 @@ const updateComplaintStatus = async (complaintId, payload, user, files = []) => 
   ensureJurisdictionAccess(user, complaint);
   ensureDepartmentAccess(user, complaint);
 
+  // 1. Validate workflow state transition
   if (!STATUS_TRANSITIONS[complaint.status].includes(payload.status)) {
     throw new AppError(`Invalid status transition from ${complaint.status} to ${payload.status}`, 400);
   }
 
+  // 2. Enforce Role-Based Workflow Discipline
+  const isAdmin = ["districtAdmin", "stateAdmin", "superAdmin"].includes(user.role);
+  if (!isAdmin) {
+    if (user.role === "panchayatOfficer") {
+      if (!["Reviewed", "Rejected"].includes(payload.status)) {
+        throw new AppError("Panchayat officers can only Review or Reject complaints.", 403);
+      }
+    }
+
+    if (user.role === "departmentOfficer") {
+      if (payload.status === "Reviewed") {
+        throw new AppError("Department officers cannot perform initial reviews. This is a Panchayat-level task.", 403);
+      }
+      if (complaint.status === "Pending") {
+        throw new AppError("Complaint must be Reviewed by a Panchayat Officer before a Department can act.", 403);
+      }
+    }
+  }
+
+  const previousStatus = complaint.status;
   complaint.status = payload.status;
+  
   if (["Resolved", "Rejected"].includes(payload.status)) {
     complaint.escalationStatus = "Normal";
     complaint.escalatedAt = null;
@@ -849,9 +872,19 @@ const updateComplaintStatus = async (complaintId, payload, user, files = []) => 
     }
   }
 
+  // 3. Generate Disciplined Audit History Action
+  let auditAction = `Complaint moved to ${payload.status}`;
+  if (payload.status === "Reviewed" && user.role === "panchayatOfficer") {
+    auditAction = "Reviewed by Panchayat Officer";
+  } else if (payload.status === "In Progress" && user.role === "departmentOfficer") {
+    auditAction = "Response started by Department Officer";
+  } else if (payload.status === "Resolved" && user.role === "departmentOfficer") {
+    auditAction = "Resolved by Department Officer";
+  }
+
   complaint.statusHistory.push({
     status: payload.status,
-    action: `Complaint moved to ${payload.status}`,
+    action: auditAction,
     remarks: payload.officerRemarks || "",
     resolutionNotes: payload.resolutionNotes || "",
     resolutionImages: payload.status === "Resolved" ? normalizeImages(files) : [],
@@ -863,7 +896,7 @@ const updateComplaintStatus = async (complaintId, payload, user, files = []) => 
   await complaint.populate(detailPopulateOptions);
   logger.info("Complaint status updated", {
     complaintId: complaint._id.toString(),
-    previousStatus: complaint.statusHistory.at(-2)?.status || null,
+    previousStatus,
     status: complaint.status,
     updatedBy: user.id.toString(),
   });
@@ -898,21 +931,40 @@ const assignComplaint = async (complaintId, assignedOfficerId, user) => {
   ensureJurisdictionAccess(user, complaint);
   ensureDepartmentAccess(user, complaint);
 
-  await validateAssignedOfficer(assignedOfficerId, complaint);
+  const officer = await validateAssignedOfficer(assignedOfficerId, complaint);
 
   if (complaint.status === "Resolved" || complaint.status === "Rejected") {
     throw new AppError("Closed complaints cannot be reassigned", 400);
   }
 
+  const previousStatus = complaint.status;
   complaint.assignedOfficer = assignedOfficerId;
-  complaint.officerRemarks = `Assigned to officer ${assignedOfficerId}`;
+  complaint.officerRemarks = `Assigned to officer ${officer.name} (${officer.role})`;
 
-  if (complaint.status === "Pending") {
+  let auditAction = "Complaint assigned for follow-up";
+
+  // Automatic state progression based on hierarchy
+  if (complaint.status === "Pending" && officer.role === "panchayatOfficer") {
+    // If assigned to another panchayat officer, stays pending or becomes reviewed if user is "Reviewing"
+    if (user.role === "panchayatOfficer") {
+       complaint.status = "Reviewed";
+       auditAction = "Reviewed and assigned by Panchayat Officer";
+    }
+  } else if (complaint.status === "Pending" && (officer.role === "departmentOfficer" || user.role === "panchayatOfficer")) {
+    // If a Panchayat officer assigns to a Department officer, it's Reviewed
+    complaint.status = "Reviewed";
+    auditAction = "Reviewed and assigned to Department Officer";
+  } else if (complaint.status === "Reviewed" && officer.role === "departmentOfficer") {
+    // If a Department officer is assigned a Reviewed case, it moves to In Progress
     complaint.status = "In Progress";
+    auditAction = "Assigned to Department Officer for resolution";
+  }
+
+  if (complaint.status !== previousStatus) {
     complaint.statusHistory.push({
-      status: "In Progress",
-      action: "Complaint assigned and moved to in-progress queue",
-      remarks: `Assigned to officer ${assignedOfficerId}`,
+      status: complaint.status,
+      action: auditAction,
+      remarks: `Officer assigned: ${officer.name}`,
       responsibleDepartment: complaint.responsibleDepartment,
       updatedBy: user.id,
     });

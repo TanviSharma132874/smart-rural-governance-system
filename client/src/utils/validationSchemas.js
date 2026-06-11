@@ -122,7 +122,7 @@ export const complaintWorkflowSchema = z.object({
 export const certificateApplySchema = z
   .object({
     certificateType: z.enum(CERTIFICATE_TYPES),
-    department: z.enum(GOVERNMENT_DEPARTMENTS),
+    department: z.string().optional(),
     jurisdictionType: z.enum(JURISDICTION_TYPES),
     state: z.string().trim().min(2, "State is required."),
     district: z.string().trim().min(2, "District is required."),
@@ -133,15 +133,6 @@ export const certificateApplySchema = z
     remarks: z.string().trim().max(1000, "Remarks cannot exceed 1000 characters.").optional().or(z.literal("")),
   })
   .superRefine((data, ctx) => {
-    const allowedDepartments = CERTIFICATE_TYPE_DEPARTMENTS[data.certificateType] || [];
-    if (allowedDepartments.length && !allowedDepartments.includes(data.department)) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["department"],
-        message: "Selected department does not match the certificate type.",
-      });
-    }
-
     if (data.jurisdictionType === "Rural" && !data.village) {
       ctx.addIssue({
         code: "custom",

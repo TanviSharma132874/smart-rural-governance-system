@@ -43,6 +43,18 @@ const formatVolunteer = (volunteer) => ({
   updatedAt: volunteer.updatedAt,
 });
 
+const ensureJurisdictionAccess = (user, volunteer) => {
+  if (user.role === "superAdmin" || user.role === "stateAdmin") {
+    return;
+  }
+
+  if (user.role === "districtAdmin") {
+    if (user.district && volunteer.district && user.district !== volunteer.district) {
+      throw new AppError("You are not authorized for volunteers outside your district jurisdiction", 403);
+    }
+  }
+};
+
 const registerVolunteer = async (payload, user) => {
   const existing = await Volunteer.findOne({ user: user.id, isDeleted: false });
 
@@ -131,6 +143,8 @@ const approveVolunteer = async (volunteerId, payload, user) => {
     throw new AppError("Volunteer profile not found", 404);
   }
 
+  ensureJurisdictionAccess(user, volunteer);
+
   volunteer.approvalStatus = payload.approvalStatus;
   volunteer.approvedBy = user.id;
   if (payload.approvalStatus !== "Approved") {
@@ -160,10 +174,14 @@ const updateVolunteerAvailability = async (volunteerId, payload, user) => {
   }
 
   const isOwner = volunteer.user && volunteer.user.toString() === user.id.toString();
-  const canManage = ["districtAdmin", "stateAdmin", "superAdmin"].includes(user.role);
-
-  if (!isOwner && !canManage) {
-    throw new AppError("You are not authorized to update volunteer availability", 403);
+  
+  if (!isOwner) {
+    ensureJurisdictionAccess(user, volunteer);
+    
+    const canManage = ["districtAdmin", "stateAdmin", "superAdmin"].includes(user.role);
+    if (!canManage) {
+      throw new AppError("You are not authorized to update volunteer availability", 403);
+    }
   }
 
   volunteer.availabilityStatus = payload.availabilityStatus;
@@ -181,10 +199,14 @@ const deleteVolunteer = async (volunteerId, user) => {
   }
 
   const isOwner = volunteer.user && volunteer.user.toString() === user.id.toString();
-  const canManage = ["districtAdmin", "stateAdmin", "superAdmin"].includes(user.role);
-
-  if (!isOwner && !canManage) {
-    throw new AppError("You are not authorized to archive this volunteer profile", 403);
+  
+  if (!isOwner) {
+    ensureJurisdictionAccess(user, volunteer);
+    
+    const canManage = ["districtAdmin", "stateAdmin", "superAdmin"].includes(user.role);
+    if (!canManage) {
+      throw new AppError("You are not authorized to archive this volunteer profile", 403);
+    }
   }
 
   volunteer.isDeleted = true;

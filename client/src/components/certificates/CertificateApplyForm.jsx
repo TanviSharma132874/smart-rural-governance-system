@@ -75,26 +75,8 @@ function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
     control,
     name: "certificateType",
   });
-  const selectedDepartment = useWatch({
-    control,
-    name: "department",
-  });
-  const allowedDepartments = useMemo(() => {
-    const mapped = CERTIFICATE_TYPE_DEPARTMENTS[certificateType] || [];
-    return mapped.length ? mapped : GOVERNMENT_DEPARTMENTS;
-  }, [certificateType]);
   const detailFields = useMemo(() => CERTIFICATE_DETAIL_FIELDS[certificateType] || [], [certificateType]);
   const fileSummary = useMemo(() => files.map((file) => file.name).join(", "), [files]);
-
-  useEffect(() => {
-    if (!allowedDepartments.length) {
-      return;
-    }
-
-    if (!allowedDepartments.includes(selectedDepartment)) {
-      setValue("department", allowedDepartments[0], { shouldValidate: true });
-    }
-  }, [allowedDepartments, selectedDepartment, setValue]);
 
   const handleFileChange = (event) => {
     setFiles(Array.from(event.target.files || []));
@@ -149,14 +131,6 @@ function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
           registration={register("certificateType")}
           error={errors.certificateType?.message}
           options={CERTIFICATE_TYPES.map((item) => ({ value: item, label: item }))}
-        />
-        <FormField
-          label="Department"
-          name="department"
-          as="select"
-          registration={register("department")}
-          error={errors.department?.message}
-          options={allowedDepartments.map((item) => ({ value: item, label: item }))}
         />
         <FormField
           label="Jurisdiction Type"

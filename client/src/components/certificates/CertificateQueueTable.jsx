@@ -26,6 +26,15 @@ function CertificateQueueTable({ certificates, onSelect, emptyMessage = "No cert
           ),
         },
         {
+          key: "department",
+          label: "Department",
+          render: (row) => (
+            <span className="text-sm text-ink-900">
+              {row.department || "Not Assigned"}
+            </span>
+          ),
+        },
+        {
           key: "status",
           label: "Workflow",
           render: (row) => <StatusBadge value={row.status} />,

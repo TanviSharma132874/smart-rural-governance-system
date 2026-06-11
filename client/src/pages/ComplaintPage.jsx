@@ -92,16 +92,7 @@ function ComplaintPage() {
   }, [query, refreshComplaints, selectedComplaint?.id]);
 
   useEffect(() => {
-    const socket = connectLiveUpdates({
-      userId: user?.id,
-      role: user?.role,
-      department: user?.department,
-      state: user?.state,
-      district: user?.district,
-      jurisdictionType: user?.jurisdictionType,
-      village: user?.village,
-      municipality: user?.municipality,
-    });
+    const socket = connectLiveUpdates();
 
     const handleComplaintCreated = ({ complaint }) => {
       if (!canManage) {

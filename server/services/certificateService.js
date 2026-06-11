@@ -62,7 +62,7 @@ const formatCertificate = (certificate) => ({
   village: certificate.village,
   municipality: certificate.municipality,
   status: certificate.status,
-  uploadedDocuments: certificate.uploadedDocuments,
+  uploadedDocuments: (certificate.uploadedDocuments || []).map((doc) => doc.replace(/^\/uploads\//, "/api/v1/files/")),
   certificateDetails: certificate.certificateDetails || {},
   remarks: certificate.remarks,
   approvedBy: formatUser(certificate.approvedBy),
@@ -257,7 +257,12 @@ const createHistoryEntry = ({ status, action, remarks, department, userId }) => 
 });
 
 const applyCertificate = async (payload, user, files = []) => {
-  ensureDepartmentAccess({ role: "departmentOfficer", department: payload.department }, payload.certificateType, payload.department);
+  // Derive department automatically from certificate type (Backend Control)
+  const allowedDepartments = CERTIFICATE_TYPE_DEPARTMENTS[payload.certificateType] || [];
+  const department = allowedDepartments[0] || "Revenue Department";
+
+  ensureDepartmentAccess({ role: "departmentOfficer", department }, payload.certificateType, department);
+  
   let certificateDetails = {};
   if (payload.certificateDetails) {
     try {
@@ -271,7 +276,7 @@ const applyCertificate = async (payload, user, files = []) => {
   const certificate = await Certificate.create({
     applicant: user.id,
     certificateType: payload.certificateType,
-    department: payload.department,
+    department,
     ...buildJurisdiction(payload, user),
     uploadedDocuments: normalizeDocuments(files),
     certificateDetails,
@@ -282,7 +287,7 @@ const applyCertificate = async (payload, user, files = []) => {
         status: "Submitted",
         action: "Application Submitted",
         remarks: payload.remarks,
-        department: payload.department,
+        department,
         userId: user.id,
       }),
     ],
@@ -293,6 +298,7 @@ const applyCertificate = async (payload, user, files = []) => {
     certificateId: certificate._id.toString(),
     applicationNumber,
     applicantId: user.id.toString(),
+    derivedDepartment: department,
   });
 
   const formatted = formatCertificate(certificate);

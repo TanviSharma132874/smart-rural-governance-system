@@ -1,19 +1,23 @@
 # Project Status
 
-**Last Updated:** June 8, 2026  
+**Last Updated:** June 11, 2026  
 **Phase:** Stage 2A - P0 Security Stabilization  
-**Production Readiness Estimate:** 72%
+**Production Readiness Estimate:** 78%
 
 ## Current Status
 
-The platform has working MERN module coverage for authentication, complaints, certificates, SOS, volunteers, resources, announcements, and role dashboards. Stage 2A focused only on security and role protection. No department normalization or workflow redesign was performed.
+The platform has working MERN module coverage for authentication, complaints, certificates, SOS, volunteers, resources, announcements, and role dashboards. Stage 2A and subsequent hardening focus on security, jurisdictional integrity, and departmental normalization.
 
-## Stage 2A Completion
+## Stage 2A & Workflow Hardening Completion
 
 - Public registration now creates citizen accounts only.
 - Privileged officer/admin account creation moved to an authenticated admin-only API path.
 - Public registration UI no longer exposes role, department, designation, or employee ID inputs.
 - RBAC route surface reviewed for unauthenticated or unauthorized access.
+- **Implemented Volunteer Jurisdiction Validation**: Ensured `districtAdmin` cannot modify responders outside their assigned territory.
+- **Department Taxonomy Normalization**: Unified department lists across all modules and migrated legacy data to ensure operational consistency for officers.
+
+
 
 ## Role Hierarchy
 

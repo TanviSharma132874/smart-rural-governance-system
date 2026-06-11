@@ -75,7 +75,7 @@ const formatEmergency = (emergency) => ({
   tehsil: emergency.tehsil,
   village: emergency.village,
   municipality: emergency.municipality,
-  images: emergency.images,
+  images: (emergency.images || []).map((img) => img.replace(/^\/uploads\//, "/api/v1/files/")),
   severity: emergency.severity,
   priority: emergency.priority,
   incidentNumber: emergency.incidentNumber,

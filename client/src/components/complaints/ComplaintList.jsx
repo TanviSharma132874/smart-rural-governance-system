@@ -4,14 +4,21 @@ import StatusBadge from "../common/StatusBadge";
 import { formatDate, getRelativeTime } from "../../utils/formatters";
 
 function ComplaintList({ complaints, selectedId, onSelect, pagination, page, onPageChange }) {
-  if (!complaints.length) {
-    return <EmptyState title="No complaints found" description="Try another filter combination or create a new complaint from the citizen action panel." />;
+  const safeComplaints = Array.isArray(complaints) ? complaints : [];
+
+  if (!safeComplaints.length) {
+    return (
+      <EmptyState
+        title="No complaints found"
+        description="Try another filter combination or create a new complaint from the citizen action panel."
+      />
+    );
   }
 
   return (
     <section className="space-y-4">
       <div className="space-y-4">
-        {complaints.map((complaint) => {
+        {safeComplaints.map((complaint) => {
           const isSelected = selectedId === complaint.id;
 
           return (
@@ -27,11 +34,20 @@ function ComplaintList({ complaints, selectedId, onSelect, pagination, page, onP
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ink-800/70">{complaint.category}</p>
-                  <h3 className="mt-2 font-display text-xl text-ink-950">{complaint.title}</h3>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-leaf-700">{complaint.subcategory}</p>
-                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-ink-800">{complaint.description}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ink-800/70">
+                    {complaint.category}
+                  </p>
+                  <h3 className="mt-2 font-display text-xl text-ink-950">
+                    {complaint.title}
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-leaf-700">
+                    {complaint.subcategory}
+                  </p>
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-ink-800">
+                    {complaint.description}
+                  </p>
                 </div>
+
                 <div className="text-right text-xs text-ink-800">
                   <p>{getRelativeTime(complaint.createdAt)}</p>
                   <p className="mt-2 font-medium">{formatDate(complaint.createdAt)}</p>
@@ -41,7 +57,11 @@ function ComplaintList({ complaints, selectedId, onSelect, pagination, page, onP
               <div className="mt-4 flex flex-wrap gap-2">
                 <StatusBadge value={complaint.status} />
                 <StatusBadge type="priority" value={complaint.priority} />
-                {complaint.isEscalated ? <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-900">Escalated</span> : null}
+                {complaint.isEscalated ? (
+                  <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-900">
+                    Escalated
+                  </span>
+                ) : null}
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-ink-800">
                   {complaint.images?.length || 0} image(s)
                 </span>
@@ -49,16 +69,20 @@ function ComplaintList({ complaints, selectedId, onSelect, pagination, page, onP
 
               <div className="mt-4 grid gap-2 text-sm text-ink-800 md:grid-cols-2">
                 <p>
-                  <span className="font-semibold text-ink-950">Citizen:</span> {complaint.citizenId?.name || "Unknown"}
+                  <span className="font-semibold text-ink-950">Citizen:</span>{" "}
+                  {complaint.citizenId?.name || "Unknown"}
                 </p>
                 <p>
-                  <span className="font-semibold text-ink-950">Assigned:</span> {complaint.assignedOfficer?.name || "Unassigned"}
+                  <span className="font-semibold text-ink-950">Assigned:</span>{" "}
+                  {complaint.assignedOfficer?.name || "Unassigned"}
                 </p>
                 <p>
-                  <span className="font-semibold text-ink-950">Department:</span> {complaint.responsibleDepartment || "-"}
+                  <span className="font-semibold text-ink-950">Department:</span>{" "}
+                  {complaint.responsibleDepartment || "-"}
                 </p>
                 <p>
-                  <span className="font-semibold text-ink-950">Ward:</span> {complaint.wardNumber || "-"}
+                  <span className="font-semibold text-ink-950">Ward:</span>{" "}
+                  {complaint.wardNumber || "-"}
                 </p>
               </div>
             </button>
@@ -71,7 +95,12 @@ function ComplaintList({ complaints, selectedId, onSelect, pagination, page, onP
           Page <span className="font-bold text-ink-950">{pagination.page || 1}</span> of{" "}
           <span className="font-bold text-ink-950">{pagination.totalPages || 0}</span>
         </p>
-        <PaginationControls page={page} totalPages={pagination.totalPages || 0} onPageChange={onPageChange} />
+
+        <PaginationControls
+          page={page}
+          totalPages={pagination.totalPages || 0}
+          onPageChange={onPageChange}
+        />
       </div>
     </section>
   );

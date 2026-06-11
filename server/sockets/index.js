@@ -1,38 +1,41 @@
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+
 let socketServer = null;
 
-const buildRooms = (context = {}) => {
+const buildRooms = (user = {}) => {
   const rooms = [];
 
-  if (context.userId) {
-    rooms.push(`user:${context.userId}`);
+  if (user.id) {
+    rooms.push(`user:${user.id}`);
   }
 
-  if (context.role) {
-    rooms.push(`role:${context.role}`);
+  if (user.role) {
+    rooms.push(`role:${user.role}`);
   }
 
-  if (context.department) {
-    rooms.push(`department:${context.department}`);
+  if (user.department) {
+    rooms.push(`department:${user.department}`);
   }
 
-  if (context.state) {
-    rooms.push(`state:${context.state}`);
+  if (user.state) {
+    rooms.push(`state:${user.state}`);
   }
 
-  if (context.district) {
-    rooms.push(`district:${context.district}`);
+  if (user.district) {
+    rooms.push(`district:${user.district}`);
   }
 
-  if (context.jurisdictionType) {
-    rooms.push(`jurisdiction:${context.jurisdictionType}`);
+  if (user.jurisdictionType) {
+    rooms.push(`jurisdiction:${user.jurisdictionType}`);
   }
 
-  if (context.village) {
-    rooms.push(`village:${context.village}`);
+  if (user.village) {
+    rooms.push(`village:${user.village}`);
   }
 
-  if (context.municipality) {
-    rooms.push(`municipality:${context.municipality}`);
+  if (user.municipality) {
+    rooms.push(`municipality:${user.municipality}`);
   }
 
   return rooms;
@@ -58,13 +61,53 @@ const emitRealtimeEvent = (rooms = [], event, payload) => {
 const initializeSockets = (io) => {
   socketServer = io;
 
+  // Authentication Middleware for Handshake
+  io.use(async (socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(" ")[1];
+
+      if (!token) {
+        return next(new Error("Authentication error: Token missing"));
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.id).select("-password").lean();
+
+      if (!user) {
+        return next(new Error("Authentication error: User not found"));
+      }
+
+      // Attach authenticated user data to socket
+      socket.user = {
+        id: user._id.toString(),
+        role: user.role,
+        department: user.department,
+        state: user.state,
+        district: user.district,
+        jurisdictionType: user.jurisdictionType,
+        village: user.village,
+        municipality: user.municipality,
+      };
+
+      next();
+    } catch (error) {
+      next(new Error("Authentication error: Invalid token"));
+    }
+  });
+
   io.on("connection", (socket) => {
-    socket.on("subscribe", (context = {}) => {
-      buildRooms(context).forEach((room) => socket.join(room));
+    // Automatically join rooms based on authenticated user data
+    const rooms = buildRooms(socket.user);
+    rooms.forEach((room) => socket.join(room));
+
+    // Handle explicit re-subscription if needed (still uses authenticated data)
+    socket.on("subscribe", () => {
+      const currentRooms = buildRooms(socket.user);
+      currentRooms.forEach((room) => socket.join(room));
     });
 
     socket.on("disconnect", () => {
-      // Intentionally quiet; request/error logs already capture server activity.
+      // Intentionally quiet
     });
   });
 };

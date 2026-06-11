@@ -8,6 +8,8 @@
 | P0-AUTH-002 | P0 | Provisioning | No controlled path existed for officer/admin account creation once public escalation is blocked. | Fixed | Added authenticated `POST /api/v1/auth/users` for `stateAdmin` and `superAdmin` with service-level hierarchy checks. |
 | P0-RBAC-001 | P0 | RBAC | Route surface needed review for missing auth/role protection. | Reviewed | No non-public route without auth/role protection found in Stage 2A review. |
 | OPS-AUTH-001 | Operational | Authentication | First `superAdmin` bootstrap is not handled by public APIs. | Open | Seed securely during deployment or create via direct controlled database bootstrap. |
+| P1-RBAC-002 | P1 | Volunteers | `districtAdmin` could approve or modify volunteer profiles outside their assigned district. | Fixed | Added `ensureJurisdictionAccess` check in `volunteerService` mutations. |
+| P2-LOGIC-003 | P2 | Departments | Incompatible department taxonomies between Governance and Emergency modules blocked officer workflows. | Fixed | Unified taxonomy implemented and data migrated. |
 
 ## RBAC Review Notes
 

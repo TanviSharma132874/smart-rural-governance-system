@@ -16,8 +16,7 @@ const applyCertificateValidator = [
     .isIn(CERTIFICATE_TYPES)
     .withMessage(`Certificate type must be one of: ${CERTIFICATE_TYPES.join(", ")}`),
   body("department")
-    .notEmpty()
-    .withMessage("Department is required")
+    .optional()
     .isIn(GOVERNMENT_DEPARTMENTS)
     .withMessage(`Department must be one of: ${GOVERNMENT_DEPARTMENTS.join(", ")}`),
   body("jurisdictionType")

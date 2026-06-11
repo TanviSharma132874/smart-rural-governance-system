@@ -3,6 +3,8 @@ import axios from "axios";
 import { getStoredToken } from "../utils/storage";
 import { API_BASE_URL } from "../utils/constants";
 
+let unauthorizedEventTriggered = false;
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -23,8 +25,17 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (
+      error.response?.status === 401 &&
+      !unauthorizedEventTriggered
+    ) {
+      unauthorizedEventTriggered = true;
+
       window.dispatchEvent(new Event("app:unauthorized"));
+
+      setTimeout(() => {
+        unauthorizedEventTriggered = false;
+      }, 1000);
     }
 
     return Promise.reject(error);

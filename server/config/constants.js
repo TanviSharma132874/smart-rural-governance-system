@@ -11,7 +11,7 @@ const OFFICER_ROLES = ["panchayatOfficer", "departmentOfficer", "districtAdmin",
 const JURISDICTION_TYPES = ["Rural", "Urban"];
 const GOVERNANCE_TYPES = ["Gram Panchayat", "Municipality", "Municipal Corporation"];
 
-const COMPLAINT_STATUSES = ["Pending", "In Progress", "Resolved", "Rejected"];
+const COMPLAINT_STATUSES = ["Pending", "Reviewed", "In Progress", "Resolved", "Rejected"];
 const COMPLAINT_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 const COMPLAINT_CATEGORIES = [
   "Roads",
@@ -43,24 +43,9 @@ const COMPLAINT_SUBCATEGORY_MAP = {
   "Public Safety": ["Unsafe Area", "Broken Barrier", "Fire Risk", "Emergency Hazard"],
   Other: ["General Complaint"],
 };
-const COMPLAINT_CATEGORY_DEPARTMENTS = {
-  Roads: "Local Administration Department",
-  Water: "Local Administration Department",
-  Electricity: "Local Administration Department",
-  Sanitation: "Local Administration Department",
-  "Street Lights": "Local Administration Department",
-  Health: "Social Welfare Department",
-  "Waste Management": "Local Administration Department",
-  Drainage: "Local Administration Department",
-  Traffic: "Local Administration Department",
-  Garbage: "Local Administration Department",
-  "Municipal Issues": "Local Administration Department",
-  "Public Safety": "Local Administration Department",
-  Other: "Local Administration Department",
-};
 const COMPLAINT_SORT_OPTIONS = ["latest", "oldest", "priority"];
-
 const CERTIFICATE_TYPES = [
+
   "Birth Certificate",
   "Death Certificate",
   "Marriage Certificate",
@@ -72,24 +57,6 @@ const CERTIFICATE_TYPES = [
   "Disability Certificate",
 ];
 const CERTIFICATE_STATUSES = ["Submitted", "Under Review", "Approved", "Rejected"];
-const GOVERNMENT_DEPARTMENTS = [
-  "Civil Registration Department",
-  "Revenue Department",
-  "Local Administration Department",
-  "Social Welfare Department",
-];
-const CERTIFICATE_TYPE_DEPARTMENTS = {
-  "Birth Certificate": ["Civil Registration Department"],
-  "Death Certificate": ["Civil Registration Department"],
-  "Marriage Certificate": ["Civil Registration Department"],
-  "Income Certificate": ["Revenue Department"],
-  "Residence Certificate": ["Revenue Department"],
-  "Domicile Certificate": ["Revenue Department"],
-  "Caste Certificate": ["Social Welfare Department"],
-  "Senior Citizen Certificate": ["Social Welfare Department"],
-  "Disability Certificate": ["Social Welfare Department"],
-};
-
 const EMERGENCY_TYPES = [
   "Flood",
   "Fire",
@@ -104,26 +71,62 @@ const EMERGENCY_TYPES = [
 ];
 const EMERGENCY_SEVERITIES = ["Low", "Medium", "High", "Critical"];
 const EMERGENCY_STATUSES = ["Submitted", "Acknowledged", "Assigned", "In Progress", "Resolved", "Closed"];
-const EMERGENCY_DEPARTMENTS = [
+
+const DEPARTMENTS = [
+  "Civil Registration Department",
+  "Revenue Department",
+  "Local Administration Department",
+  "Social Welfare Department",
+  "Health & Medical Services",
+  "Police & Public Safety",
+  "Fire & Emergency Services",
   "Disaster Management Cell",
-  "Health Department",
-  "Police Department",
-  "Fire Department",
-  "Municipal Corporation",
-  "Panchayat Emergency Team",
   "Electricity Department",
+  "Water Resources Department",
 ];
+
+const GOVERNMENT_DEPARTMENTS = DEPARTMENTS;
+const EMERGENCY_DEPARTMENTS = DEPARTMENTS;
+
+const COMPLAINT_CATEGORY_DEPARTMENTS = {
+  Roads: "Local Administration Department",
+  Water: "Water Resources Department",
+  Electricity: "Electricity Department",
+  Sanitation: "Local Administration Department",
+  "Street Lights": "Local Administration Department",
+  Health: "Health & Medical Services",
+  "Waste Management": "Local Administration Department",
+  Drainage: "Local Administration Department",
+  Traffic: "Police & Public Safety",
+  Garbage: "Local Administration Department",
+  "Municipal Issues": "Local Administration Department",
+  "Public Safety": "Police & Public Safety",
+  Other: "Local Administration Department",
+};
+
+const CERTIFICATE_TYPE_DEPARTMENTS = {
+  "Birth Certificate": ["Civil Registration Department"],
+  "Death Certificate": ["Civil Registration Department"],
+  "Marriage Certificate": ["Civil Registration Department"],
+  "Income Certificate": ["Revenue Department"],
+  "Residence Certificate": ["Revenue Department"],
+  "Domicile Certificate": ["Revenue Department"],
+  "Caste Certificate": ["Social Welfare Department"],
+  "Senior Citizen Certificate": ["Social Welfare Department"],
+  "Disability Certificate": ["Social Welfare Department"],
+};
+
 const EMERGENCY_TYPE_DEPARTMENTS = {
-  Flood: ["Disaster Management Cell", "Panchayat Emergency Team"],
-  Fire: ["Fire Department"],
-  "Medical Emergency": ["Health Department"],
-  "Road Accident": ["Police Department", "Health Department"],
-  "Building Collapse": ["Disaster Management Cell", "Municipal Corporation"],
-  "Water Crisis": ["Municipal Corporation", "Panchayat Emergency Team"],
+  Flood: ["Disaster Management Cell", "Local Administration Department"],
+  Fire: ["Fire & Emergency Services"],
+  "Medical Emergency": ["Health & Medical Services"],
+  "Road Accident": ["Police & Public Safety", "Health & Medical Services"],
+  "Building Collapse": ["Disaster Management Cell", "Local Administration Department"],
+  "Water Crisis": ["Water Resources Department", "Local Administration Department"],
   "Electricity Hazard": ["Electricity Department"],
-  "Animal Attack": ["Disaster Management Cell", "Panchayat Emergency Team"],
+  "Animal Attack": ["Disaster Management Cell", "Local Administration Department"],
   Landslide: ["Disaster Management Cell"],
-  "Storm Damage": ["Disaster Management Cell", "Municipal Corporation"],
+  "Storm Damage": ["Disaster Management Cell", "Local Administration Department"],
 };
 const RESOURCE_TYPES = [
   "Food Packets",

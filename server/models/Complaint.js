@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { COMPLAINT_PRIORITIES, COMPLAINT_STATUSES, JURISDICTION_TYPES } = require("../config/constants");
+const { COMPLAINT_PRIORITIES, COMPLAINT_STATUSES, JURISDICTION_TYPES, GOVERNMENT_DEPARTMENTS } = require("../config/constants");
 
 const statusHistorySchema = new mongoose.Schema(
   {
@@ -36,6 +36,7 @@ const statusHistorySchema = new mongoose.Schema(
     },
     responsibleDepartment: {
       type: String,
+      enum: [...GOVERNMENT_DEPARTMENTS, ""],
       default: "",
       trim: true,
     },
@@ -101,6 +102,7 @@ const complaintSchema = new mongoose.Schema(
     },
     responsibleDepartment: {
       type: String,
+      enum: [...GOVERNMENT_DEPARTMENTS, ""],
       default: "",
       trim: true,
       index: true,

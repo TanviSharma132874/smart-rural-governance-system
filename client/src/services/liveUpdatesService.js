@@ -1,19 +1,26 @@
 import { io } from "socket.io-client";
 
 import { API_BASE_URL } from "../utils/constants";
+import { getStoredToken } from "../utils/storage";
 
 let socket = null;
 
 const buildSocketBaseUrl = () => API_BASE_URL.replace("/api/v1", "").replace("/api", "");
 
-export const connectLiveUpdates = (context) => {
+export const connectLiveUpdates = () => {
+  const token = getStoredToken();
+  
   if (!socket) {
     socket = io(buildSocketBaseUrl(), {
       transports: ["websocket", "polling"],
+      auth: {
+        token,
+      },
     });
   }
 
-  socket.emit("subscribe", context);
+  // No need to pass context, server derives it from authenticated token
+  socket.emit("subscribe");
 
   return socket;
 };

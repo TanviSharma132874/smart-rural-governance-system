@@ -1,12 +1,26 @@
 import WorkflowTimeline from "./WorkflowTimeline";
 
 function AuditPanel({ history = [] }) {
+  const auditItems = Array.isArray(history) ? history : [];
+
   return (
     <section className="glass-panel rounded-[32px] border border-white/70 bg-white/90 p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.28em] text-leaf-600">Audit Timeline</p>
-      <h3 className="mt-2 font-display text-2xl text-ink-950">Governance actions</h3>
+      <p className="text-xs font-semibold uppercase tracking-[0.28em] text-leaf-600">
+        Audit Timeline
+      </p>
+
+      <h3 className="mt-2 font-display text-2xl text-ink-950">
+        Governance actions
+      </h3>
+
       <div className="mt-5">
-        <WorkflowTimeline items={history} />
+        {auditItems.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+            No audit events available.
+          </div>
+        ) : (
+          <WorkflowTimeline items={auditItems} />
+        )}
       </div>
     </section>
   );

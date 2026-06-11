@@ -1,4 +1,6 @@
 function DataTable({ columns, rows, emptyMessage = "No records found." }) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+
   return (
     <div className="overflow-hidden rounded-[28px] border border-slate-200">
       <div className="overflow-x-auto">
@@ -12,9 +14,10 @@ function DataTable({ columns, rows, emptyMessage = "No records found." }) {
               ))}
             </tr>
           </thead>
+
           <tbody>
-            {rows.length ? (
-              rows.map((row, rowIndex) => (
+            {safeRows.length ? (
+              safeRows.map((row, rowIndex) => (
                 <tr key={row.id || rowIndex} className="border-t border-slate-100">
                   {columns.map((column) => (
                     <td key={column.key} className="px-4 py-3 align-top text-ink-800">
