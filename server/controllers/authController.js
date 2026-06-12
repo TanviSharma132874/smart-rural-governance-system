@@ -42,9 +42,20 @@ const getProfile = asyncHandler(async (req, res) => {
   });
 });
 
+const updateProfile = asyncHandler(async (req, res) => {
+  const user = await authService.updateProfile(req.user.id, req.body);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "Profile updated successfully",
+    data: { user },
+  });
+});
+
 module.exports = {
   register,
   createUser,
   login,
   getProfile,
+  updateProfile,
 };

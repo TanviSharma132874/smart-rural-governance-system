@@ -5,9 +5,10 @@ function SidebarNav() {
   const user = useAppSelector((state) => state.auth.user);
 
   const canManageResources = [
-    "panchayat_officer",
-    "district_admin",
-    "state_admin",
+    "panchayatOfficer",
+    "districtAdmin",
+    "stateAdmin",
+    "superAdmin",
   ].includes(user?.role);
 
   const navItems = [
@@ -16,10 +17,9 @@ function SidebarNav() {
     { to: "/certificates", label: "Certificates" },
     { to: "/emergencies", label: "Emergencies" },
     { to: "/announcements", label: "Announcements" },
-    ...(canManageResources
-      ? [{ to: "/resources", label: "Resources" }]
-      : []),
+    ...(canManageResources ? [{ to: "/resources", label: "Resources" }] : []),
     { to: "/volunteers", label: "Volunteers" },
+    { to: "/profile", label: "Profile" },
   ];
 
   return (

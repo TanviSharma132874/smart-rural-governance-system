@@ -31,6 +31,14 @@ router.post(
   enforceJurisdictionPayload,
   certificateController.applyCertificate
 );
+router.patch(
+  "/:id/resubmit",
+  authorize("citizen"),
+  uploadCertificateDocuments.array("documents", 6),
+  certificateIdValidator,
+  validateRequest,
+  certificateController.resubmitCertificate
+);
 router.get(
   "/my-applications",
   authorize("citizen"),

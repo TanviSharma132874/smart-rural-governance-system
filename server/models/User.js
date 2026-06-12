@@ -37,7 +37,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
       trim: true,
-      maxlength: [20, "Aadhaar number cannot exceed 20 characters"],
+      validate: {
+        validator: function (v) {
+          return v === "" || /^\d{12}$/.test(v);
+        },
+        message: (props) => `${props.value} is not a valid 12-digit Aadhaar number!`,
+      },
     },
     email: {
       type: String,

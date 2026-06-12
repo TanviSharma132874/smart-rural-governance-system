@@ -225,6 +225,9 @@ const complaintSchema = new mongoose.Schema(
   }
 );
 
+complaintSchema.index({ images: 1 });
+complaintSchema.index({ resolutionImages: 1 });
+complaintSchema.index({ "statusHistory.resolutionImages": 1 });
 complaintSchema.index({ status: 1 });
 complaintSchema.index({ priority: 1 });
 complaintSchema.index({ category: 1 });

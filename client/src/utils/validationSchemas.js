@@ -32,7 +32,7 @@ export const registerSchema = z.object({
   motherName: z.string().trim().max(100, "Mother's name cannot exceed 100 characters.").optional().or(z.literal("")),
   dateOfBirth: z.string().trim().optional().or(z.literal("")),
   gender: z.enum(["", "Male", "Female", "Other"]),
-  aadhaarNumber: z.string().trim().min(12, "Aadhaar number must be at least 12 characters.").max(20, "Aadhaar number cannot exceed 20 characters.").optional().or(z.literal("")),
+  aadhaarNumber: z.string().trim().regex(/^\d{12}$/, "Aadhaar number must be exactly 12 numeric digits.").optional().or(z.literal("")),
   email: z.email("Enter a valid email address."),
   password: z.string().min(6, "Password must be at least 6 characters long."),
   role: z.literal("citizen"),

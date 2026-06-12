@@ -18,6 +18,11 @@ const resourceService = {
     const response = await apiClient.patch(`/resources/${id}`, payload);
     return response.data.data;
   },
+
+  async returnResource(id, allocationId, returnRemarks = "") {
+    const response = await apiClient.patch(`/resources/${id}/return`, { allocationId, returnRemarks });
+    return response.data.data;
+  },
 };
 
 export default resourceService;

@@ -11,7 +11,7 @@ const OFFICER_ROLES = ["panchayatOfficer", "departmentOfficer", "districtAdmin",
 const JURISDICTION_TYPES = ["Rural", "Urban"];
 const GOVERNANCE_TYPES = ["Gram Panchayat", "Municipality", "Municipal Corporation"];
 
-const COMPLAINT_STATUSES = ["Pending", "Reviewed", "In Progress", "Resolved", "Rejected"];
+const COMPLAINT_STATUSES = ["Pending", "Reviewed", "In Progress", "Resolved", "Closed", "Rejected"];
 const COMPLAINT_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 const COMPLAINT_CATEGORIES = [
   "Roads",
@@ -56,7 +56,7 @@ const CERTIFICATE_TYPES = [
   "Senior Citizen Certificate",
   "Disability Certificate",
 ];
-const CERTIFICATE_STATUSES = ["Submitted", "Under Review", "Approved", "Rejected"];
+const CERTIFICATE_STATUSES = ["Submitted", "Under Review", "Correction Required", "Resubmitted", "Approved", "Issued", "Rejected"];
 const EMERGENCY_TYPES = [
   "Flood",
   "Fire",
@@ -148,7 +148,7 @@ const VOLUNTEER_SKILLS = [
   "Communication",
   "Shelter Management",
 ];
-const VOLUNTEER_AVAILABILITY = ["Available", "Assigned", "Unavailable"];
+const VOLUNTEER_AVAILABILITY = ["Available", "Assigned", "Completed", "Unavailable"];
 const VOLUNTEER_APPROVAL_STATUSES = ["Pending", "Approved", "Rejected"];
 const ANNOUNCEMENT_TYPES = [
   "Flood Warning",

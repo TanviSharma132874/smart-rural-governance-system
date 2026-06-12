@@ -12,8 +12,11 @@ const {
 
 const CERTIFICATE_TRANSITIONS = {
   Submitted: ["Under Review"],
-  "Under Review": ["Approved", "Rejected"],
-  Approved: [],
+  "Under Review": ["Correction Required", "Approved", "Rejected"],
+  "Correction Required": ["Resubmitted"],
+  Resubmitted: ["Under Review"],
+  Approved: ["Issued"],
+  Issued: [],
   Rejected: [],
 };
 const DEFAULT_PAGE = 1;
@@ -315,6 +318,76 @@ const applyCertificate = async (payload, user, files = []) => {
   return formatted;
 };
 
+const resubmitCertificate = async (certificateId, payload, user, files = []) => {
+  const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false });
+
+  if (!certificate) {
+    throw new AppError("Certificate application not found", 404);
+  }
+
+  if (certificate.applicant.toString() !== user.id.toString()) {
+    throw new AppError("You are not authorized to resubmit this application", 403);
+  }
+
+  if (certificate.status !== "Correction Required") {
+    throw new AppError(
+      `Only applications with 'Correction Required' status can be resubmitted. Current status: ${certificate.status}`,
+      400
+    );
+  }
+
+  // Update details
+  if (payload.certificateDetails) {
+    try {
+      const details =
+        typeof payload.certificateDetails === "string"
+          ? JSON.parse(payload.certificateDetails)
+          : payload.certificateDetails;
+      certificate.certificateDetails = { ...certificate.certificateDetails, ...details };
+    } catch (_error) {
+      throw new AppError("Certificate details payload is invalid", 400);
+    }
+  }
+
+  if (payload.remarks) {
+    certificate.remarks = payload.remarks;
+  }
+
+  // Append new documents if any
+  const newDocs = normalizeDocuments(files);
+  if (newDocs.length) {
+    certificate.uploadedDocuments = [...certificate.uploadedDocuments, ...newDocs];
+  }
+
+  certificate.status = "Resubmitted";
+  certificate.statusHistory.push(
+    createHistoryEntry({
+      status: "Resubmitted",
+      action: "Application Resubmitted by Citizen",
+      remarks: payload.remarks || "Resubmitted with requested corrections",
+      department: certificate.department,
+      userId: user.id,
+    })
+  );
+
+  await certificate.save();
+  await certificate.populate(detailPopulateOptions);
+
+  logger.info("Certificate application resubmitted", {
+    certificateId: certificate._id.toString(),
+    applicantId: user.id.toString(),
+  });
+
+  const formatted = formatCertificate(certificate);
+  emitRealtimeEvent(
+    [`user:${user.id}`, `district:${certificate.district}`, `department:${certificate.department}`],
+    "certificate:updated",
+    { certificate: formatted }
+  );
+
+  return formatted;
+};
+
 const getMyApplications = async (user, filters = {}) => {
   const options = normalizeListOptions(filters);
   const query = addListFiltersToQuery(
@@ -484,6 +557,18 @@ const updateCertificateStatus = async (certificateId, payload, user) => {
     certificate.verificationUrl = verificationAssets.verificationUrl;
     certificate.digitalSignature = `${user.name || "Officer"} (${user.department || certificate.department})`;
     certificate.departmentSeal = `${certificate.department} Official Seal`;
+
+    // System automatically Issues the certificate after Approval and Asset Generation
+    certificate.status = "Issued";
+    certificate.statusHistory.push(
+      createHistoryEntry({
+        status: "Issued",
+        action: "Certificate Issued by System",
+        remarks: "Certificate generated and signed successfully",
+        department: certificate.department,
+        userId: user.id,
+      })
+    );
   } else {
     certificate.approvedBy = undefined;
     certificate.issuedAt = undefined;

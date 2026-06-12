@@ -44,7 +44,7 @@ router.get(
 router.patch(
   "/:id/status",
   authMiddleware,
-  authorize("panchayatOfficer", "departmentOfficer", "districtAdmin", "stateAdmin", "superAdmin"),
+  authorize("citizen", "panchayatOfficer", "departmentOfficer", "districtAdmin", "stateAdmin", "superAdmin"),
   uploadComplaintImages.array("resolutionImages", 5),
   updateComplaintStatusValidator,
   validateRequest,

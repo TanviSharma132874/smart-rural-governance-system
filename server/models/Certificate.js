@@ -176,6 +176,7 @@ const certificateSchema = new mongoose.Schema(
   }
 );
 
+certificateSchema.index({ uploadedDocuments: 1 });
 certificateSchema.index({ department: 1, status: 1, district: 1 });
 certificateSchema.index({ applicant: 1, status: 1, createdAt: -1 });
 certificateSchema.index({ jurisdictionType: 1, district: 1, tehsil: 1, village: 1, municipality: 1 });

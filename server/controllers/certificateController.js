@@ -12,6 +12,16 @@ const applyCertificate = asyncHandler(async (req, res) => {
   });
 });
 
+const resubmitCertificate = asyncHandler(async (req, res) => {
+  const certificate = await certificateService.resubmitCertificate(req.params.id, req.body, req.user, req.files);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "Certificate application resubmitted successfully",
+    data: { certificate },
+  });
+});
+
 const getMyApplications = asyncHandler(async (req, res) => {
   const { certificates, pagination } = await certificateService.getMyApplications(req.user, req.query);
 
@@ -94,6 +104,7 @@ const deleteCertificate = asyncHandler(async (req, res) => {
 
 module.exports = {
   applyCertificate,
+  resubmitCertificate,
   getMyApplications,
   getDepartmentQueue,
   getCertificateById,

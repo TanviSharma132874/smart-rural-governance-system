@@ -19,7 +19,8 @@ const STATUS_TRANSITIONS = {
   Pending: ["Reviewed", "Rejected"],
   Reviewed: ["In Progress", "Rejected"],
   "In Progress": ["Resolved", "Rejected"],
-  Resolved: [],
+  Resolved: ["Closed"],
+  Closed: [],
   Rejected: [],
 };
 const PRIORITY_SORT_ORDER = {
@@ -821,8 +822,25 @@ const updateComplaintStatus = async (complaintId, payload, user, files = []) => 
     throw new AppError("Complaint not found", 404);
   }
 
-  ensureJurisdictionAccess(user, complaint);
-  ensureDepartmentAccess(user, complaint);
+  // 0. Enforce Read-Only state for Closed complaints
+  if (complaint.status === "Closed") {
+    throw new AppError("This complaint is closed and cannot be modified further.", 400);
+  }
+
+  const isCitizenOwner = user.role === "citizen" && complaint.citizenId && complaint.citizenId.toString() === user.id.toString();
+
+  // Citizen can only close resolved complaints
+  if (isCitizenOwner) {
+    if (payload.status !== "Closed") {
+      throw new AppError("Citizens can only update status to 'Closed' for resolved complaints.", 403);
+    }
+    if (complaint.status !== "Resolved") {
+      throw new AppError("Only resolved complaints can be closed by citizens.", 400);
+    }
+  } else {
+    ensureJurisdictionAccess(user, complaint);
+    ensureDepartmentAccess(user, complaint);
+  }
 
   // 1. Validate workflow state transition
   if (!STATUS_TRANSITIONS[complaint.status].includes(payload.status)) {
@@ -831,7 +849,7 @@ const updateComplaintStatus = async (complaintId, payload, user, files = []) => 
 
   // 2. Enforce Role-Based Workflow Discipline
   const isAdmin = ["districtAdmin", "stateAdmin", "superAdmin"].includes(user.role);
-  if (!isAdmin) {
+  if (!isAdmin && !isCitizenOwner) {
     if (user.role === "panchayatOfficer") {
       if (!["Reviewed", "Rejected"].includes(payload.status)) {
         throw new AppError("Panchayat officers can only Review or Reject complaints.", 403);
@@ -851,16 +869,16 @@ const updateComplaintStatus = async (complaintId, payload, user, files = []) => 
   const previousStatus = complaint.status;
   complaint.status = payload.status;
   
-  if (["Resolved", "Rejected"].includes(payload.status)) {
+  if (["Resolved", "Rejected", "Closed"].includes(payload.status)) {
     complaint.escalationStatus = "Normal";
     complaint.escalatedAt = null;
   }
 
-  if (payload.priority) {
+  if (payload.priority && !isCitizenOwner) {
     complaint.priority = payload.priority;
   }
 
-  if (payload.officerRemarks !== undefined) {
+  if (payload.officerRemarks !== undefined && !isCitizenOwner) {
     complaint.officerRemarks = payload.officerRemarks;
   }
 
@@ -880,12 +898,14 @@ const updateComplaintStatus = async (complaintId, payload, user, files = []) => 
     auditAction = "Response started by Department Officer";
   } else if (payload.status === "Resolved" && user.role === "departmentOfficer") {
     auditAction = "Resolved by Department Officer";
+  } else if (payload.status === "Closed" && isCitizenOwner) {
+    auditAction = "Complaint closed by citizen";
   }
 
   complaint.statusHistory.push({
     status: payload.status,
     action: auditAction,
-    remarks: payload.officerRemarks || "",
+    remarks: payload.officerRemarks || payload.citizenRemarks || "",
     resolutionNotes: payload.resolutionNotes || "",
     resolutionImages: payload.status === "Resolved" ? normalizeImages(files) : [],
     responsibleDepartment: complaint.responsibleDepartment,
@@ -916,6 +936,8 @@ const updateComplaintStatus = async (complaintId, payload, user, files = []) => 
     emitRealtimeEvent(rooms, "complaint:resolved", { complaint: formatted });
   } else if (payload.status === "Rejected") {
     emitRealtimeEvent(rooms, "complaint:rejected", { complaint: formatted });
+  } else if (payload.status === "Closed") {
+    emitRealtimeEvent(rooms, "complaint:closed", { complaint: formatted });
   }
 
   return formatted;
@@ -932,6 +954,10 @@ const assignComplaint = async (complaintId, assignedOfficerId, user) => {
   ensureDepartmentAccess(user, complaint);
 
   const officer = await validateAssignedOfficer(assignedOfficerId, complaint);
+
+  if (complaint.status === "Closed") {
+    throw new AppError("This complaint is closed and cannot be reassigned.", 400);
+  }
 
   if (complaint.status === "Resolved" || complaint.status === "Rejected") {
     throw new AppError("Closed complaints cannot be reassigned", 400);

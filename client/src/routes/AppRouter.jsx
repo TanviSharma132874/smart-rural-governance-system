@@ -17,6 +17,7 @@ const AnnouncementsPage = lazy(() => import("../pages/AnnouncementsPage"));
 const RegisterPage = lazy(() => import("../pages/RegisterPage"));
 const ResourcesPage = lazy(() => import("../pages/ResourcesPage"));
 const VolunteersPage = lazy(() => import("../pages/VolunteersPage"));
+const ProfilePage = lazy(() => import("../pages/ProfilePage"));
 
 function AppRouter() {
   return (
@@ -55,6 +56,7 @@ function AppRouter() {
           <Route path="/resources" element={<ResourcesPage />} />
           <Route path="/volunteers" element={<VolunteersPage />} />
           <Route path="/announcements" element={<AnnouncementsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
         </Routes>

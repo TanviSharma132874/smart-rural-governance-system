@@ -551,10 +551,34 @@ const updateEmergencyStatus = async (emergencyId, payload, user) => {
 
   if (payload.status === "Resolved") {
     emergency.resolvedAt = new Date();
+    // Mark Volunteers as Completed when resolved
+    if (emergency.volunteerAssignments && emergency.volunteerAssignments.length > 0) {
+      const volunteerIds = emergency.volunteerAssignments.map((a) => a.volunteer);
+      await Volunteer.updateMany(
+        { _id: { $in: volunteerIds } },
+        { $set: { availabilityStatus: "Completed" } }
+      );
+      logger.info("Volunteers moved to 'Completed' status (SOS Resolved)", {
+        emergencyId: emergency._id.toString(),
+        volunteersCount: volunteerIds.length
+      });
+    }
   }
 
   if (payload.status === "Closed") {
     emergency.closedAt = new Date();
+    // Release Volunteers to Available when closed
+    if (emergency.volunteerAssignments && emergency.volunteerAssignments.length > 0) {
+      const volunteerIds = emergency.volunteerAssignments.map((a) => a.volunteer);
+      await Volunteer.updateMany(
+        { _id: { $in: volunteerIds } },
+        { $set: { availabilityStatus: "Available" } }
+      );
+      logger.info("Volunteers released to 'Available' status (SOS Closed)", {
+        emergencyId: emergency._id.toString(),
+        volunteersCount: volunteerIds.length
+      });
+    }
   }
 
   await emergency.save();

@@ -283,6 +283,7 @@ const emergencySchema = new mongoose.Schema(
   }
 );
 
+emergencySchema.index({ images: 1 });
 emergencySchema.index({ emergencyType: 1, status: 1, district: 1 });
 emergencySchema.index({ assignedDepartment: 1, status: 1, createdAt: -1 });
 emergencySchema.index({ jurisdictionType: 1, district: 1, tehsil: 1, village: 1, municipality: 1 });

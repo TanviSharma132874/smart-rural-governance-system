@@ -59,8 +59,27 @@ const resourceAllocationSchema = new mongoose.Schema(
       trim: true,
       maxlength: 500,
     },
+    isReturned: {
+      type: Boolean,
+      default: false,
+    },
+    returnedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    returnedAt: {
+      type: Date,
+      default: null,
+    },
+    returnRemarks: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 500,
+    },
   },
-  { _id: false }
+  { _id: true }
 );
 
 const resourceSchema = new mongoose.Schema(

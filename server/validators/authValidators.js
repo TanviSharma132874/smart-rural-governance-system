@@ -15,7 +15,7 @@ const registerValidator = [
   body("motherName").optional().trim().isLength({ max: 100 }).withMessage("Mother's name cannot exceed 100 characters"),
   body("dateOfBirth").optional().isISO8601().withMessage("Date of birth must be a valid date"),
   body("gender").optional().isIn(["Male", "Female", "Other", ""]).withMessage("Gender must be Male, Female, or Other"),
-  body("aadhaarNumber").optional().trim().isLength({ min: 12, max: 20 }).withMessage("Aadhaar number must be between 12 and 20 characters"),
+  body("aadhaarNumber").optional().trim().isLength({ min: 12, max: 12 }).withMessage("Aadhaar number must be exactly 12 digits").isNumeric().withMessage("Aadhaar number must contain only digits"),
   body("email").isEmail().withMessage("Valid email is required").normalizeEmail(),
   body("password")
     .isLength({ min: 6 })
@@ -68,7 +68,7 @@ const createUserValidator = [
   body("motherName").optional().trim().isLength({ max: 100 }).withMessage("Mother's name cannot exceed 100 characters"),
   body("dateOfBirth").optional().isISO8601().withMessage("Date of birth must be a valid date"),
   body("gender").optional().isIn(["Male", "Female", "Other", ""]).withMessage("Gender must be Male, Female, or Other"),
-  body("aadhaarNumber").optional().trim().isLength({ min: 12, max: 20 }).withMessage("Aadhaar number must be between 12 and 20 characters"),
+  body("aadhaarNumber").optional().trim().isLength({ min: 12, max: 12 }).withMessage("Aadhaar number must be exactly 12 digits").isNumeric().withMessage("Aadhaar number must contain only digits"),
   body("email").isEmail().withMessage("Valid email is required").normalizeEmail(),
   body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters long"),
   body("role")

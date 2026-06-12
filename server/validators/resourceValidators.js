@@ -36,9 +36,16 @@ const updateResourceValidator = [
   body("remarks").optional().trim().isLength({ max: 500 }).withMessage("Remarks cannot exceed 500 characters"),
 ];
 
+const returnResourceValidator = [
+  ...resourceIdValidator,
+  body("allocationId").isMongoId().withMessage("Allocation ID is required and must be a valid MongoDB ObjectId"),
+  body("returnRemarks").optional().trim().isLength({ max: 500 }).withMessage("Return remarks cannot exceed 500 characters"),
+];
+
 module.exports = {
   resourceIdValidator,
   createResourceValidator,
   resourceListValidator,
   updateResourceValidator,
+  returnResourceValidator,
 };

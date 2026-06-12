@@ -216,6 +216,48 @@ function ResourcesPage() {
                 rows={records}
                 emptyMessage="No resources found."
               />
+
+              <div className="mt-8 space-y-4">
+                <header className="flex items-center gap-3">
+                  <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                  <h3 className="font-display text-xl text-ink-950">Active Asset Allocations</h3>
+                </header>
+                <div className="rounded-[32px] border border-slate-100 bg-white/60 p-1">
+                  <DataTable
+                    columns={[
+                      { key: "resourceType", label: "Asset" },
+                      { key: "emergency", label: "Emergency ID", render: (row) => row.emergency?.incidentNumber || row.emergency || "Direct Allocation" },
+                      { key: "quantity", label: "Qty" },
+                      { key: "allocatedAt", label: "Allocated", render: (row) => new Date(row.allocatedAt).toLocaleDateString("en-IN") },
+                      {
+                        key: "action",
+                        label: "Action",
+                        render: (row) => (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await resourceService.returnResource(row.resourceId, row.id, "Returned from field");
+                                toast.success("Asset returned to inventory.");
+                                // Refresh logic is handled by live updates socket
+                              } catch (err) {
+                                toast.error(getApiErrorMessage(err));
+                              }
+                            }}
+                            className="rounded-full bg-leaf-50 px-3 py-1 text-xs font-bold text-leaf-700 transition hover:bg-leaf-100"
+                          >
+                            Return
+                          </button>
+                        ),
+                      },
+                    ]}
+                    rows={records.flatMap(r => (r.allocationHistory || [])
+                      .filter(a => !a.isReturned)
+                      .map(a => ({ ...a, resourceType: r.resourceType, resourceId: r.id }))
+                    )}
+                    emptyMessage="No active allocations found."
+                  />
+                </div>
+              </div>
             </>
           )}
         </section>

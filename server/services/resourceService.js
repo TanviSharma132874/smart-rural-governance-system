@@ -193,6 +193,73 @@ const updateResource = async (resourceId, payload, user) => {
   return formatResource(resource);
 };
 
+const returnResource = async (resourceId, payload, user) => {
+  const resource = await Resource.findOne({ _id: resourceId, isDeleted: false });
+
+  if (!resource) {
+    throw new AppError("Resource not found", 404);
+  }
+
+  // RBAC: Only Assigned Department Officer or Admins
+  if (["departmentOfficer", "panchayatOfficer"].includes(user.role) && user.department && resource.department !== user.department) {
+    throw new AppError("You are not authorized to return resources for this department", 403);
+  }
+
+  const allocation = resource.allocationHistory.id(payload.allocationId);
+
+  if (!allocation) {
+    throw new AppError("Allocation record not found for this resource", 404);
+  }
+
+  if (allocation.isReturned) {
+    throw new AppError("This resource allocation has already been returned", 400);
+  }
+
+  // Side effects:
+  // 1. Increase availableQuantity
+  const quantityToReturn = allocation.quantity;
+  resource.availableQuantity += quantityToReturn;
+
+  // 2. Update allocation status
+  allocation.isReturned = true;
+  allocation.returnedBy = user.id;
+  allocation.returnedAt = new Date();
+  allocation.returnRemarks = payload.returnRemarks || "";
+
+  // 3. Update resource overall status
+  resource.status = resource.availableQuantity === 0 ? "Depleted" : resource.availableQuantity <= Math.max(1, Math.floor(resource.quantity * 0.2)) ? "Low Stock" : "Available";
+
+  // 4. Create audit trail entry
+  resource.auditHistory.push({
+    action: "Resource returned",
+    quantityChange: quantityToReturn,
+    remarks: payload.returnRemarks || `Returned from emergency ${allocation.emergency || "N/A"}`,
+    updatedBy: user.id,
+  });
+
+  await resource.save();
+  await resource.populate([
+    { path: "managedBy", select: "name email role department" },
+    { path: "auditHistory.updatedBy", select: "name email role department" },
+    { path: "allocationHistory.returnedBy", select: "name email role department" }
+  ]);
+
+  logger.info("Resource returned to inventory", {
+    resourceId: resource._id.toString(),
+    allocationId: payload.allocationId,
+    returnedBy: user.id.toString(),
+    quantityRestored: quantityToReturn,
+  });
+
+  emitRealtimeEvent(
+    [`district:${resource.district}`, `department:${resource.department}`],
+    "resource:updated",
+    { resource: formatResource(resource) }
+  );
+
+  return formatResource(resource);
+};
+
 const deleteResource = async (resourceId, user) => {
   const resource = await Resource.findOne({ _id: resourceId, isDeleted: false });
 
@@ -216,5 +283,6 @@ module.exports = {
   createResource,
   getResources,
   updateResource,
+  returnResource,
   deleteResource,
 };
