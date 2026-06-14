@@ -42,10 +42,20 @@ const returnResourceValidator = [
   body("returnRemarks").optional().trim().isLength({ max: 500 }).withMessage("Return remarks cannot exceed 500 characters"),
 ];
 
+const addMaintenanceValidator = [
+  ...resourceIdValidator,
+  body("action").trim().notEmpty().withMessage("Maintenance action is required"),
+  body("performedBy").optional().trim().notEmpty().withMessage("Performed by field cannot be empty"),
+  body("maintenanceDate").optional().isISO8601().withMessage("Maintenance date must be a valid ISO8601 date"),
+  body("nextServiceDate").optional().isISO8601().withMessage("Next service date must be a valid ISO8601 date"),
+  body("remarks").optional().trim().isLength({ max: 500 }).withMessage("Remarks cannot exceed 500 characters"),
+];
+
 module.exports = {
   resourceIdValidator,
   createResourceValidator,
   resourceListValidator,
   updateResourceValidator,
   returnResourceValidator,
+  addMaintenanceValidator,
 };

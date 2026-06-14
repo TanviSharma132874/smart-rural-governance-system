@@ -2,7 +2,9 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const path = require("path");
 
-dotenv.config({ path: path.join(__dirname, "..", ".env") });
+dotenv.config({
+  path: path.resolve(__dirname, "../.env"),
+});
 
 const User = require("../models/User");
 const Complaint = require("../models/Complaint");
@@ -51,7 +53,7 @@ const migrateCollection = async (Model, fieldName, historyFieldName = null) => {
 
 const runMigration = async () => {
   try {
-    const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/smart-rural-governance";
+    const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/smart-rural-governance";
     await mongoose.connect(mongoUri);
     console.log("Connected to MongoDB for migration.");
 

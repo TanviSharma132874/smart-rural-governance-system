@@ -108,7 +108,7 @@ const createUserValidator = [
   body("pincode").optional().trim().isLength({ min: 4, max: 12 }).withMessage("Pincode must be between 4 and 12 characters"),
   body("occupation").optional().trim().isLength({ max: 100 }).withMessage("Occupation cannot exceed 100 characters"),
   body("designation").trim().notEmpty().withMessage("Designation is required for officer/admin accounts"),
-  body("employeeId").optional().trim().isLength({ max: 50 }).withMessage("Employee ID cannot exceed 50 characters"),
+  body("employeeId").trim().notEmpty().withMessage("Employee ID is required for administrative/officer provisioning"),
   body("profileImage").optional().isString().withMessage("Profile image must be a string"),
 ].concat([
   body("department").custom((value, { req }) => {
@@ -124,8 +124,20 @@ const loginValidator = [
   body("password").notEmpty().withMessage("Password is required"),
 ];
 
+const updateProfileValidator = [
+  body("email").optional().isEmail().withMessage("Valid email is required").normalizeEmail(),
+  body("phone").optional().trim().notEmpty().withMessage("Phone number cannot be empty"),
+  body("address").optional().trim().isLength({ max: 250 }).withMessage("Address cannot exceed 250 characters"),
+  // Blacklist other fields
+  body(["role", "aadhaarNumber", "employeeId", "department", "designation", "jurisdictionType", "state", "district"])
+    .not()
+    .exists()
+    .withMessage("Identity and jurisdiction fields cannot be updated via profile"),
+];
+
 module.exports = {
   registerValidator,
   createUserValidator,
   loginValidator,
+  updateProfileValidator,
 };

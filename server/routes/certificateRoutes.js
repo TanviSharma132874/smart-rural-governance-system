@@ -31,6 +31,14 @@ router.post(
   enforceJurisdictionPayload,
   certificateController.applyCertificate
 );
+router.post(
+  "/:id/correction",
+  authorize("citizen"),
+  uploadCertificateDocuments.array("documents", 6),
+  certificateIdValidator,
+  validateRequest,
+  certificateController.applyCorrection
+);
 router.patch(
   "/:id/resubmit",
   authorize("citizen"),
@@ -88,5 +96,8 @@ router.delete(
   validateRequest,
   certificateController.deleteCertificate
 );
+
+// Public Verification Route
+router.get("/verify/:certificateNumber", certificateController.verifyCertificatePublic);
 
 module.exports = router;

@@ -12,6 +12,16 @@ const applyCertificate = asyncHandler(async (req, res) => {
   });
 });
 
+const applyCorrection = asyncHandler(async (req, res) => {
+  const certificate = await certificateService.applyCorrection(req.params.id, req.body, req.user, req.files);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "Correction application submitted successfully",
+    data: { certificate },
+  });
+});
+
 const resubmitCertificate = asyncHandler(async (req, res) => {
   const certificate = await certificateService.resubmitCertificate(req.params.id, req.body, req.user, req.files);
 
@@ -102,6 +112,16 @@ const deleteCertificate = asyncHandler(async (req, res) => {
   });
 });
 
+const verifyCertificatePublic = asyncHandler(async (req, res) => {
+  const verificationResult = await certificateService.verifyCertificatePublic(req.params.certificateNumber);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "Certificate verification completed",
+    data: verificationResult,
+  });
+});
+
 module.exports = {
   applyCertificate,
   resubmitCertificate,
@@ -113,4 +133,5 @@ module.exports = {
   verifyCertificate,
   downloadCertificate,
   deleteCertificate,
+  verifyCertificatePublic,
 };

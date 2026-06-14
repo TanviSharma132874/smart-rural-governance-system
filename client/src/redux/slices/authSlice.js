@@ -45,6 +45,15 @@ export const loadCurrentUser = createAsyncThunk("auth/loadCurrentUser", async (_
   }
 });
 
+export const updateProfile = createAsyncThunk("auth/updateProfile", async (payload, { rejectWithValue }) => {
+  try {
+    const response = await authService.updateProfile(payload);
+    return response.user;
+  } catch (error) {
+    return rejectWithValue(normalizeAuthError(error));
+  }
+});
+
 const authSlice = createSlice({
   name: "auth",
   initialState: {
@@ -112,6 +121,24 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = null;
         state.token = "";
+        state.error = action.payload;
+      })
+      .addCase(updateProfile.pending, (state) => {
+        state.loading = true;
+        state.error = "";
+      })
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload;
+        if (state.token) {
+          setStoredAuth({
+            token: state.token,
+            user: action.payload,
+          });
+        }
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.loading = false;
         state.error = action.payload;
       });
   },

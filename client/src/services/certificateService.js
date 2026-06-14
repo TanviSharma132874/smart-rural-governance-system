@@ -36,6 +36,15 @@ const certificateService = {
     return response.data.data;
   },
 
+  async resubmit(id, formData) {
+    const response = await apiClient.patch(`/certificates/${id}/resubmit`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data.data;
+  },
+
   async verify(id) {
     const response = await apiClient.get(`/certificates/verify/${id}`);
     return response.data.data;

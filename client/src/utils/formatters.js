@@ -50,6 +50,8 @@ export const getStatusTone = (status = "Pending") => {
     Published: "bg-emerald-100 text-emerald-900",
     Archived: "bg-slate-200 text-slate-900",
     Unavailable: "bg-slate-200 text-slate-900",
+    Active: "bg-emerald-100 text-emerald-900",
+    Inactive: "bg-rose-100 text-rose-900",
   };
 
   return tones[status] || "bg-slate-100 text-slate-900";

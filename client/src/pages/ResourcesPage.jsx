@@ -3,6 +3,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-hot-toast";
 
+import BaseModal from "../components/common/BaseModal";
 import DataTable from "../components/common/DataTable";
 import EmptyState from "../components/common/EmptyState";
 import FormField from "../components/common/FormField";
@@ -27,6 +28,12 @@ function ResourcesPage() {
   const [error, setError] = useState("");
   const [resourceTypeFilter, setResourceTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [selectedAuditHistory, setSelectedAuditHistory] = useState(null);
+  const [selectedAllocationHistory, setSelectedAllocationHistory] = useState(null);
+  const [selectedMaintenanceHistory, setSelectedMaintenanceHistory] = useState(null);
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [maintenanceForm, setMaintenanceForm] = useState({ action: "", remarks: "", nextServiceDate: "" });
+
   const {
     register,
     handleSubmit,
@@ -194,8 +201,26 @@ function ResourcesPage() {
                   { key: "resourceCategory", label: "Category", render: (row) => row.resourceCategory || "-" },
                   {
                     key: "stock",
-                    label: "Stock",
-                    render: (row) => `${row.availableQuantity} / ${row.quantity}`,
+                    label: "Inventory Status",
+                    render: (row) => (
+                      <div className="flex flex-col gap-1">
+                        <p className="font-bold text-ink-950">{row.availableQuantity} / {row.quantity}</p>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => setSelectedAuditHistory({ name: row.resourceType, history: row.auditHistory || [] })}
+                            className="text-[10px] font-bold uppercase tracking-tighter text-leaf-600 hover:underline"
+                          >
+                            Stock Logs
+                          </button>
+                          <button 
+                            onClick={() => setSelectedMaintenanceHistory({ id: row.id, name: row.resourceType, history: row.maintenanceHistory || [] })}
+                            className="text-[10px] font-bold uppercase tracking-tighter text-amber-600 hover:underline"
+                          >
+                            Maintenance
+                          </button>
+                        </div>
+                      </div>
+                    ),
                   },
                   {
                     key: "status",
@@ -209,8 +234,18 @@ function ResourcesPage() {
                   },
                   {
                     key: "lastAllocationAt",
-                    label: "Last Allocation",
-                    render: (row) => (row.lastAllocationAt ? new Date(row.lastAllocationAt).toLocaleDateString("en-IN") : "Not allocated"),
+                    label: "Allocations",
+                    render: (row) => (
+                      <div className="flex flex-col gap-1">
+                        <p className="text-[10px] font-semibold text-ink-900">{row.lastAllocationAt ? new Date(row.lastAllocationAt).toLocaleDateString("en-IN") : "No history"}</p>
+                        <button 
+                          onClick={() => setSelectedAllocationHistory({ name: row.resourceType, history: row.allocationHistory || [] })}
+                          className="text-[10px] font-bold uppercase tracking-tighter text-sky-600 hover:underline text-left"
+                        >
+                          View All
+                        </button>
+                      </div>
+                    ),
                   },
                 ]}
                 rows={records}
@@ -262,6 +297,133 @@ function ResourcesPage() {
           )}
         </section>
       </section>
+
+      <BaseModal 
+        isOpen={Boolean(selectedAuditHistory)} 
+        title={`Inventory Stock Audit: ${selectedAuditHistory?.name}`} 
+        onClose={() => setSelectedAuditHistory(null)}
+      >
+        <div className="space-y-3">
+          {selectedAuditHistory?.history?.length ? (
+            selectedAuditHistory.history.map((entry, idx) => (
+              <div key={idx} className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-xs">
+                <div className="flex justify-between font-bold text-ink-950">
+                  <span>{entry.action}</span>
+                  <span className={entry.quantityChange >= 0 ? 'text-leaf-600' : 'text-rose-600'}>
+                    {entry.quantityChange >= 0 ? '+' : ''}{entry.quantityChange}
+                  </span>
+                </div>
+                <p className="mt-1 text-slate-600">{entry.remarks}</p>
+                <div className="mt-2 flex justify-between text-[10px] text-slate-400">
+                  <span>By: {entry.updatedBy?.name || 'System'}</span>
+                  <span>{new Date(entry.updatedAt).toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="py-4 text-center text-sm text-slate-500">No stock logs recorded for this resource.</p>
+          )}
+        </div>
+      </BaseModal>
+
+      <BaseModal 
+        isOpen={Boolean(selectedAllocationHistory)} 
+        title={`Allocation History: ${selectedAllocationHistory?.name}`} 
+        onClose={() => setSelectedAllocationHistory(null)}
+      >
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+          {selectedAllocationHistory?.history?.length ? (
+            [...selectedAllocationHistory.history].reverse().map((entry, idx) => (
+              <div key={idx} className={`rounded-2xl border p-4 text-xs ${entry.isReturned ? 'bg-slate-50 border-slate-200 opacity-80' : 'bg-leaf-50 border-leaf-200'}`}>
+                <div className="flex justify-between font-bold text-ink-950">
+                  <span className="text-sm">Quantity: {entry.quantity}</span>
+                  <StatusBadge value={entry.isReturned ? 'Returned' : 'In Field'} />
+                </div>
+                <p className="mt-2 text-ink-800"><span className="font-bold text-slate-400 uppercase text-[9px] mr-1">Allocated By:</span> {entry.allocatedBy?.name || 'N/A'}</p>
+                <p className="text-ink-800"><span className="font-bold text-slate-400 uppercase text-[9px] mr-1">Allocated At:</span> {new Date(entry.allocatedAt).toLocaleString("en-IN")}</p>
+                <p className="mt-1 text-slate-600 italic">"{entry.remarks || 'No remarks recorded'}"</p>
+                
+                {entry.isReturned && (
+                  <div className="mt-3 border-t border-slate-200 pt-3">
+                    <p className="text-ink-800"><span className="font-bold text-leaf-700 uppercase text-[9px] mr-1">Returned By:</span> {entry.returnedBy?.name || 'N/A'}</p>
+                    <p className="text-ink-800"><span className="font-bold text-leaf-700 uppercase text-[9px] mr-1">Returned At:</span> {new Date(entry.returnedAt).toLocaleString("en-IN")}</p>
+                    <p className="mt-1 text-leaf-900 italic">"{entry.returnRemarks || 'No return remarks'}"</p>
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <p className="py-4 text-center text-sm text-slate-500">No allocation history found.</p>
+          )}
+        </div>
+      </BaseModal>
+
+      <BaseModal 
+        isOpen={Boolean(selectedMaintenanceHistory)} 
+        title={`Maintenance & Service Records: ${selectedMaintenanceHistory?.name}`} 
+        onClose={() => setSelectedMaintenanceHistory(null)}
+      >
+        <div className="space-y-4">
+          <button 
+            onClick={() => setIsMaintenanceModalOpen(true)}
+            className="w-full rounded-full bg-amber-600 py-3 text-xs font-bold text-white transition hover:bg-amber-700 shadow-md"
+          >
+            + Log Official Maintenance Action
+          </button>
+          
+          <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
+            {selectedMaintenanceHistory?.history?.length ? (
+              [...selectedMaintenanceHistory.history].reverse().map((entry, idx) => (
+                <div key={idx} className="rounded-2xl border border-slate-100 bg-white p-4 text-xs shadow-sm">
+                  <div className="flex justify-between font-bold text-ink-950">
+                    <span className="text-sm font-display">{entry.action}</span>
+                    <span className="text-amber-600">{new Date(entry.maintenanceDate).toLocaleDateString("en-IN")}</span>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-ink-800"><span className="font-bold text-slate-400 uppercase text-[9px] mr-1">Technician / Officer:</span> {entry.performedBy}</p>
+                    {entry.nextServiceDate && (
+                      <p className="text-rose-600 font-bold"><span className="font-bold text-slate-400 uppercase text-[9px] mr-1 text-rose-300">Next Required Service:</span> {new Date(entry.nextServiceDate).toLocaleDateString("en-IN")}</p>
+                    )}
+                  </div>
+                  {entry.remarks && <div className="mt-3 rounded-xl bg-slate-50 p-2 italic text-slate-600">"{entry.remarks}"</div>}
+                </div>
+              ))
+            ) : (
+              <p className="py-6 text-center text-sm text-slate-500 italic">No formal maintenance records found for this asset.</p>
+            )}
+          </div>
+        </div>
+      </BaseModal>
+
+      <BaseModal 
+        isOpen={isMaintenanceModalOpen} 
+        title="Add Maintenance Entry" 
+        onClose={() => setIsMaintenanceModalOpen(false)}
+      >
+        <form className="space-y-4" onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          try {
+            await resourceService.addMaintenance(selectedMaintenanceHistory.id, maintenanceForm);
+            toast.success("Maintenance record synchronized.");
+            setIsMaintenanceModalOpen(false);
+            setSelectedMaintenanceHistory(null);
+            setMaintenanceForm({ action: "", remarks: "", nextServiceDate: "" });
+          } catch (err) {
+            toast.error(getApiErrorMessage(err));
+          } finally {
+            setBusy(false);
+          }
+        }}>
+          <FormField label="Maintenance Action" name="action" value={maintenanceForm.action} onChange={(e) => setMaintenanceForm({...maintenanceForm, action: e.target.value})} placeholder="e.g. Engine Service, Battery Replacement" required />
+          <FormField label="Performed By" name="performedBy" value={maintenanceForm.performedBy} onChange={(e) => setMaintenanceForm({...maintenanceForm, performedBy: e.target.value})} placeholder={user.name} />
+          <FormField label="Next Service Due Date" type="date" name="nextServiceDate" value={maintenanceForm.nextServiceDate} onChange={(e) => setMaintenanceForm({...maintenanceForm, nextServiceDate: e.target.value})} />
+          <FormField label="Service Remarks" name="remarks" as="textarea" value={maintenanceForm.remarks} onChange={(e) => setMaintenanceForm({...maintenanceForm, remarks: e.target.value})} />
+          <button type="submit" disabled={busy} className="w-full rounded-full bg-ink-950 py-3 text-sm font-bold text-white transition hover:bg-leaf-600 disabled:opacity-50">
+            {busy ? "Processing..." : "Commit Record to Registry"}
+          </button>
+        </form>
+      </BaseModal>
     </div>
   );
 }

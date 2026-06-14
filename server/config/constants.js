@@ -55,6 +55,7 @@ const CERTIFICATE_TYPES = [
   "Caste Certificate",
   "Senior Citizen Certificate",
   "Disability Certificate",
+  "Land Ownership Certificate",
 ];
 const CERTIFICATE_STATUSES = ["Submitted", "Under Review", "Correction Required", "Resubmitted", "Approved", "Issued", "Rejected"];
 const EMERGENCY_TYPES = [

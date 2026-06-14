@@ -34,11 +34,22 @@ function LoginPage() {
 
     if (loginUser.fulfilled.match(result)) {
       toast.success("Login successful.");
-      navigate("/dashboard");
+      const user = result.payload.user;
+
+      // Role-Based Dashboard Routing
+      if (user.role === "citizen") navigate("/dashboard");
+      else if (user.role === "volunteer") navigate("/dashboard");
+      else if (user.role === "panchayatOfficer") navigate("/dashboard");
+      else if (user.role === "departmentOfficer") navigate("/dashboard");
+      else if (user.role === "districtAdmin") navigate("/dashboard");
+      else if (user.role === "stateAdmin") navigate("/dashboard");
+      else if (user.role === "superAdmin") navigate("/dashboard");
+      else navigate("/dashboard");
+
       return;
     }
 
-    toast.error(result.payload || "Unable to log in.");
+    toast.error(result.payload || "Invalid email or password.");
   };
 
   return (

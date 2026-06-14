@@ -1,38 +1,26 @@
 # =========================
-
 # Dependencies
-
 # =========================
-
 node_modules/
 
 # =========================
-
 # Build Outputs
-
 # =========================
-
 dist/
 dist-ssr/
 build/
 coverage/
 
 # =========================
-
 # Environment Variables
-
 # =========================
-
 .env
 .env.*
 !.env.example
 
 # =========================
-
 # Logs
-
 # =========================
-
 logs/
 *.log
 npm-debug.log*
@@ -42,11 +30,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # =========================
-
 # IDE / Editors
-
 # =========================
-
 .vscode/*
 !.vscode/extensions.json
 
@@ -58,37 +43,28 @@ lerna-debug.log*
 *.sw?
 
 # =========================
-
 # OS Files
-
 # =========================
-
 .DS_Store
 Thumbs.db
 Desktop.ini
 
 # =========================
-
 # Local Config
-
 # =========================
-
 *.local
 
 # =========================
-
-# AI / Documentation Files
-
+# Documentation (Ignore all docs)
 # =========================
-
 docs/
 *.md
 
-# =========================
+# Keep README.md if you want project description on GitHub
+!README.md
 
+# =========================
 # Temporary Files
-
 # =========================
-
 *.tmp
 *.temp

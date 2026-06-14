@@ -7,6 +7,7 @@ import CertificateQueueTable from "../components/certificates/CertificateQueueTa
 import DocumentPreviewModal from "../components/certificates/DocumentPreviewModal";
 import PdfPreviewModal from "../components/certificates/PdfPreviewModal";
 import VerificationBadge from "../components/certificates/VerificationBadge";
+import BaseModal from "../components/common/BaseModal";
 import DataTable from "../components/common/DataTable";
 import FormField from "../components/common/FormField";
 import LoaderPanel from "../components/common/LoaderPanel";
@@ -41,6 +42,11 @@ function CertificatesPage() {
   const [documentPreview, setDocumentPreview] = useState("");
   const [pdfPreview, setPdfPreview] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [isResubmitting, setIsResubmitting] = useState(false);
+  const [resubmissionFiles, setResubmissionFiles] = useState([]);
+  const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
+  const [correctionForm, setCorrectionForm] = useState({ reasonForChange: "", requestedChanges: "" });
+  const [correctionFiles, setCorrectionFiles] = useState([]);
 
   const queueParams = useMemo(
     () => ({
@@ -338,7 +344,7 @@ function CertificatesPage() {
                       <p className="mt-2 text-sm leading-6 text-ink-800">{selectedCertificate.applicationNumber}</p>
                     </div>
                     <VerificationBadge
-                      verified={selectedCertificate.status === "Approved"}
+                      verified={selectedCertificate.status === "Approved" || selectedCertificate.status === "Issued"}
                       status={selectedCertificate.status}
                     />
                   </div>
@@ -381,7 +387,7 @@ function CertificatesPage() {
                         Preview Document
                       </button>
                     ))}
-                    {selectedCertificate.status === "Approved" ? (
+                    {selectedCertificate.status === "Approved" || selectedCertificate.status === "Issued" ? (
                       <button
                         type="button"
                         onClick={() => previewPdf(selectedCertificate.id)}
@@ -442,6 +448,22 @@ function CertificatesPage() {
                               onClick={() =>
                                 runBusyAction(async () => {
                                   await certificateService.updateStatus(selectedCertificate.id, {
+                                    status: "Correction Required",
+                                    remarks,
+                                  });
+                                  toast.success("Requested citizen for correction.");
+                                })
+                              }
+                              className="rounded-full bg-amber-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-amber-400 disabled:opacity-60"
+                            >
+                              Correction Required
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() =>
+                                runBusyAction(async () => {
+                                  await certificateService.updateStatus(selectedCertificate.id, {
                                     status: "Rejected",
                                     remarks,
                                   });
@@ -454,33 +476,129 @@ function CertificatesPage() {
                             </button>
                           </>
                         ) : null}
+                        {selectedCertificate.status === "Approved" ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              runBusyAction(async () => {
+                                await certificateService.updateStatus(selectedCertificate.id, {
+                                  status: "Issued",
+                                  remarks,
+                                });
+                                toast.success("Certificate issued successfully.");
+                              })
+                            }
+                            className="rounded-full bg-ink-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-leaf-600 disabled:opacity-60"
+                          >
+                            Finalize & Issue
+                          </button>
+                        ) : null}
+                        {selectedCertificate.status === "Resubmitted" ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              runBusyAction(async () => {
+                                await certificateService.review(selectedCertificate.id, { remarks });
+                                toast.success("Resubmitted application moved to review.");
+                              })
+                            }
+                            className="rounded-full bg-sky-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-sky-500 disabled:opacity-60"
+                          >
+                            Review Resubmission
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      {selectedCertificate.status === "Approved" ? (
-                        <button
-                          type="button"
-                          onClick={() => previewPdf(selectedCertificate.id)}
-                          className="rounded-full bg-ink-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-leaf-600"
-                        >
-                          Preview Approved PDF
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busy || selectedCertificate.status !== "Submitted"}
-                          onClick={() =>
-                            runBusyAction(async () => {
-                              await certificateService.archive(selectedCertificate.id);
-                              toast.success("Certificate application archived.");
-                            })
-                          }
-                          className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold text-ink-900 transition hover:border-alert-500 hover:text-alert-500 disabled:opacity-50"
-                        >
-                          Archive Application
-                        </button>
+                    <div className="mt-6 space-y-4">
+                      {selectedCertificate.status === "Correction Required" && !isResubmitting && (
+                        <div className="rounded-[24px] bg-amber-50 p-4 border border-amber-200">
+                          <p className="text-sm font-bold text-amber-900">Correction Requested by Officer</p>
+                          <p className="mt-1 text-xs text-amber-800">{selectedCertificate.statusHistory?.[selectedCertificate.statusHistory.length - 1]?.remarks || "Please check documentation."}</p>
+                          <button
+                            onClick={() => setIsResubmitting(true)}
+                            className="mt-3 rounded-full bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-sm"
+                          >
+                            Update & Resubmit
+                          </button>
+                        </div>
                       )}
+
+                      {isResubmitting && (
+                        <div className="rounded-[24px] border border-leaf-200 bg-leaf-50 p-4">
+                           <p className="text-sm font-bold text-leaf-950">Resubmit Application</p>
+                           <p className="mt-1 text-xs text-leaf-800">Upload corrected documents or additional evidence as requested.</p>
+                           <div className="mt-3 space-y-3">
+                              <input 
+                                type="file" 
+                                multiple 
+                                onChange={(e) => setResubmissionFiles(Array.from(e.target.files))}
+                                className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-leaf-100 file:text-leaf-700 hover:file:bg-leaf-200"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => runBusyAction(async () => {
+                                    if (resubmissionFiles.length === 0) {
+                                      toast.error("Please select at least one document.");
+                                      return;
+                                    }
+                                    const formData = new FormData();
+                                    resubmissionFiles.forEach(f => formData.append("documents", f));
+                                    await certificateService.resubmit(selectedCertificate.id, formData);
+                                    toast.success("Application resubmitted.");
+                                    setIsResubmitting(false);
+                                  })}
+                                  disabled={busy}
+                                  className="rounded-full bg-leaf-600 px-4 py-2 text-xs font-bold text-white"
+                                >
+                                  {busy ? "Uploading..." : "Submit Correction"}
+                                </button>
+                                <button
+                                  onClick={() => setIsResubmitting(false)}
+                                  className="rounded-full bg-slate-200 px-4 py-2 text-xs font-bold text-slate-700"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                           </div>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-3">
+                        {selectedCertificate.status === "Issued" && (
+                          <button
+                            onClick={() => setIsCorrectionModalOpen(true)}
+                            className="rounded-full bg-amber-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-amber-500 shadow-md"
+                          >
+                            Apply for Correction
+                          </button>
+                        )}
+                        {selectedCertificate.status === "Approved" || selectedCertificate.status === "Issued" ? (
+                          <button
+                            type="button"
+                            onClick={() => previewPdf(selectedCertificate.id)}
+                            className="rounded-full bg-ink-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-leaf-600"
+                          >
+                            Preview {selectedCertificate.status === "Issued" ? "Final" : "Approved"} PDF
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={busy || !["Submitted", "Correction Required"].includes(selectedCertificate.status)}
+                            onClick={() =>
+                              runBusyAction(async () => {
+                                await certificateService.archive(selectedCertificate.id);
+                                toast.success("Certificate application archived.");
+                              })
+                            }
+                            className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold text-ink-900 transition hover:border-alert-500 hover:text-alert-500 disabled:opacity-50"
+                          >
+                            Archive Application
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </section>
@@ -496,6 +614,40 @@ function CertificatesPage() {
 
       <DocumentPreviewModal isOpen={Boolean(documentPreview)} documentUrl={documentPreview} onClose={() => setDocumentPreview("")} />
       <PdfPreviewModal isOpen={Boolean(pdfPreview)} pdfUrl={pdfPreview} onClose={() => setPdfPreview("")} />
+
+      <BaseModal isOpen={isCorrectionModalOpen} title="Official Correction Request" onClose={() => setIsCorrectionModalOpen(false)}>
+        <form className="space-y-6" onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          try {
+            const formData = new FormData();
+            formData.append("reasonForChange", correctionForm.reasonForChange);
+            formData.append("requestedChanges", correctionForm.requestedChanges);
+            correctionFiles.forEach(f => formData.append("documents", f));
+            
+            await certificateService.applyCorrection(selectedCertificate.id, formData);
+            toast.success("Correction request filed with department.");
+            setIsCorrectionModalOpen(false);
+            setCorrectionForm({ reasonForChange: "", requestedChanges: "" });
+            setCorrectionFiles([]);
+            await loadRecords();
+          } catch (err) {
+            toast.error(getApiErrorMessage(err));
+          } finally {
+            setBusy(false);
+          }
+        }}>
+          <FormField label="Legal Reason for Correction" name="reasonForChange" as="textarea" value={correctionForm.reasonForChange} onChange={(e) => setCorrectionForm({...correctionForm, reasonForChange: e.target.value})} placeholder="e.g. Spouse name misspelling, Income bracket update" required />
+          <FormField label="Description of Changes" name="requestedChanges" as="textarea" value={correctionForm.requestedChanges} onChange={(e) => setCorrectionForm({...correctionForm, requestedChanges: e.target.value})} placeholder="Precisely state what needs to be changed from v1." required />
+          <label className="block">
+            <span className="mb-2 block text-[10px] font-black text-ink-900 uppercase tracking-widest">Supporting Evidence (MANDATORY)</span>
+            <input type="file" multiple onChange={(e) => setCorrectionFiles(Array.from(e.target.files))} className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100" />
+          </label>
+          <button type="submit" disabled={busy} className="w-full rounded-full bg-ink-950 py-4 text-sm font-bold text-white transition hover:bg-leaf-600 shadow-lg">
+            {busy ? "Transmitting..." : "Submit Correction to Authority"}
+          </button>
+        </form>
+      </BaseModal>
     </div>
   );
 }

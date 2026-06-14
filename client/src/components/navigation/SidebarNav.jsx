@@ -11,6 +11,12 @@ function SidebarNav() {
     "superAdmin",
   ].includes(user?.role);
 
+  const isAdmin = [
+    "districtAdmin",
+    "stateAdmin",
+    "superAdmin",
+  ].includes(user?.role);
+
   const navItems = [
     { to: "/dashboard", label: "Dashboard" },
     { to: "/complaints", label: "Complaints" },
@@ -19,6 +25,7 @@ function SidebarNav() {
     { to: "/announcements", label: "Announcements" },
     ...(canManageResources ? [{ to: "/resources", label: "Resources" }] : []),
     { to: "/volunteers", label: "Volunteers" },
+    ...(isAdmin ? [{ to: "/admin/users", label: "User Management" }] : []),
     { to: "/profile", label: "Profile" },
   ];
 

@@ -42,10 +42,22 @@ const formatResource = (resource) => ({
     updatedAt: entry.updatedAt,
   })),
   allocationHistory: (resource.allocationHistory || []).map((entry) => ({
+    id: entry._id,
     emergency: entry.emergency,
     quantity: entry.quantity,
     allocatedBy: formatUser(entry.allocatedBy),
     allocatedAt: entry.allocatedAt,
+    remarks: entry.remarks,
+    isReturned: entry.isReturned,
+    returnedBy: formatUser(entry.returnedBy),
+    returnedAt: entry.returnedAt,
+    returnRemarks: entry.returnRemarks,
+  })),
+  maintenanceHistory: (resource.maintenanceHistory || []).map((entry) => ({
+    action: entry.action,
+    performedBy: entry.performedBy,
+    maintenanceDate: entry.maintenanceDate,
+    nextServiceDate: entry.nextServiceDate,
     remarks: entry.remarks,
   })),
   lastAllocationAt: resource.lastAllocationAt,
@@ -260,6 +272,42 @@ const returnResource = async (resourceId, payload, user) => {
   return formatResource(resource);
 };
 
+const addMaintenanceRecord = async (resourceId, payload, user) => {
+  const resource = await Resource.findOne({ _id: resourceId, isDeleted: false });
+
+  if (!resource) {
+    throw new AppError("Resource not found", 404);
+  }
+
+  if (["departmentOfficer", "panchayatOfficer"].includes(user.role) && user.department && resource.department !== user.department) {
+    throw new AppError("You are not authorized to manage maintenance for this resource inventory", 403);
+  }
+
+  resource.maintenanceHistory.push({
+    action: payload.action,
+    performedBy: payload.performedBy || user.name,
+    maintenanceDate: payload.maintenanceDate || new Date(),
+    nextServiceDate: payload.nextServiceDate || null,
+    remarks: payload.remarks || "",
+  });
+
+  await resource.save();
+  await resource.populate([
+    { path: "managedBy", select: "name email role department" },
+    { path: "auditHistory.updatedBy", select: "name email role department" },
+    { path: "allocationHistory.allocatedBy", select: "name email role department" },
+    { path: "allocationHistory.returnedBy", select: "name email role department" }
+  ]);
+
+  emitRealtimeEvent(
+    [`district:${resource.district}`, `department:${resource.department}`],
+    "resource:updated",
+    { resource: formatResource(resource) }
+  );
+
+  return formatResource(resource);
+};
+
 const deleteResource = async (resourceId, user) => {
   const resource = await Resource.findOne({ _id: resourceId, isDeleted: false });
 
@@ -284,5 +332,6 @@ module.exports = {
   getResources,
   updateResource,
   returnResource,
+  addMaintenanceRecord,
   deleteResource,
 };

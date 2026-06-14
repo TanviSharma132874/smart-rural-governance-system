@@ -429,6 +429,462 @@ Rooms:
 Room access must be server-validated.
 
 ---
+# GEMINI.md ADDENDUM – PHASE 4 GOVERNMENT WORKFLOW UPGRADE
+
+## Critical Architecture Principle
+
+The platform must behave like a real Government e-Governance System and not like a generic CRUD application.
+
+Workflow correctness, auditability, jurisdiction control, and document integrity always take priority over UI convenience.
+
+---
+
+# MASTER DATA SYSTEM
+
+Remove all hardcoded geography.
+
+Current hardcoded values:
+
+* Rajasthan
+* Sikar
+* Laxmangarh
+* Singodara
+
+must become configurable.
+
+Create master collections:
+
+State
+District
+Tehsil
+Block
+Panchayat
+Village
+Municipality
+Ward
+
+Relationships:
+
+State
+→ District
+→ Tehsil
+→ Panchayat/Block
+→ Village
+→ Ward
+
+All workflows must derive jurisdiction from these collections.
+
+System must support onboarding of any district in India without code changes.
+
+---
+
+# CITIZEN PROFILE ENHANCEMENT
+
+Citizen profile becomes the source of truth.
+
+Mandatory identity fields:
+
+* Full Name
+* Aadhaar Number
+* DOB
+* Gender
+* Mobile
+* Email
+* Address
+* State
+* District
+* Tehsil
+* Panchayat
+* Village
+* Municipality
+* Ward
+* Pincode
+
+Optional:
+
+* Father Name
+* Mother Name
+* Occupation
+
+Certificate applications must automatically inherit profile data.
+
+Citizen should not repeatedly enter identity information.
+
+---
+
+# CERTIFICATE ENGINE REBUILD
+
+Replace generic certificate form with Dynamic Certificate Engine.
+
+Every certificate type must define:
+
+Certificate Metadata:
+
+* Certificate Name
+* Certificate Code
+* Department Mapping
+* Workflow Template
+
+Required Fields:
+
+* Dynamic per certificate
+
+Required Documents:
+
+* Dynamic per certificate
+
+Validation Rules:
+
+* Dynamic per certificate
+
+Review Authority:
+
+* Dynamic per certificate
+
+Examples:
+
+Birth Certificate
+Marriage Certificate
+Death Certificate
+Income Certificate
+Residence Certificate
+Domicile Certificate
+Caste Certificate
+Disability Certificate
+Senior Citizen Certificate
+Land Ownership Certificate
+
+Each certificate must have its own schema.
+
+---
+
+# MULTI DOCUMENT SUPPORT
+
+Current implementation is insufficient.
+
+Required:
+
+Citizen can upload:
+
+* Aadhaar
+* Residence Proof
+* Income Proof
+* Affidavit
+* Existing Certificate
+* Supporting Evidence
+
+Support:
+
+PDF
+PNG
+JPG
+JPEG
+
+Features:
+
+* Multi-file upload
+* File preview
+* Replace document
+* Remove document
+* Verification status
+* Document category tagging
+
+Storage must use Secure File Gateway.
+
+---
+
+# CERTIFICATE CORRECTION WORKFLOW
+
+New module required.
+
+Citizen actions:
+
+Apply Correction
+
+Fields:
+
+* Existing Certificate
+* Certificate Number
+* Reason For Change
+* Requested Changes
+* Supporting Documents
+
+Workflow:
+
+Submitted
+→ Under Review
+→ Correction Required
+→ Resubmitted
+→ Approved
+→ Issued
+
+or
+
+Submitted
+→ Rejected
+
+Every correction must generate a new certificate version.
+
+---
+
+# CERTIFICATE VERSIONING
+
+Mandatory.
+
+Store:
+
+Version 1
+Version 2
+Version 3
+
+Track:
+
+* Who modified
+* What changed
+* When changed
+* Reason
+
+No certificate may be overwritten.
+
+Historical versions remain immutable.
+
+---
+
+# CERTIFICATE PDF SYSTEM
+
+Current PDF generation must be upgraded.
+
+Every generated certificate PDF must contain:
+
+* Government Header
+* Certificate Number
+* Application Number
+* Citizen Details
+* Issue Date
+* Expiry Date (if applicable)
+* Issuing Officer
+* QR Verification Code
+* Verification URL
+* Digital Signature Metadata
+* Department Seal Placeholder
+
+PDF generation must use certificate-specific templates.
+
+Different certificate types must not share identical layouts.
+
+---
+
+# CERTIFICATE VERIFICATION SYSTEM
+
+Public Verification Endpoint
+
+Inputs:
+
+* Certificate Number
+  OR
+* QR Code
+
+Outputs:
+
+* Valid
+* Revoked
+* Superseded
+* Expired
+
+Public users must not access private citizen information.
+
+---
+
+# DEPARTMENT ROUTING ENGINE
+
+Citizen must never select department.
+
+Routing occurs on backend.
+
+Examples:
+
+Birth Certificate
+→ Civil Registration
+
+Income Certificate
+→ Revenue Department
+
+Road Complaint
+→ Public Works
+
+Street Light Complaint
+→ Electricity Department
+
+Water Leakage
+→ Water Department
+
+Routing must be configuration driven.
+
+No hardcoded switch statements.
+
+---
+
+# COMPLAINT MODULE UPGRADE
+
+Add:
+
+Search
+Status Filter
+Priority Filter
+Category Filter
+Subcategory Filter
+Escalation Filter
+Date Range Filter
+Jurisdiction Filter
+
+All filters must support combination queries.
+
+Add:
+
+Complaint Timeline
+
+Display:
+
+* Submitted
+* Reviewed
+* Assigned
+* Escalated
+* In Progress
+* Resolved
+* Closed
+
+Include:
+
+Officer
+Department
+Timestamp
+Remarks
+
+---
+
+# COMPLAINT EVIDENCE SYSTEM
+
+Support:
+
+Multiple Images
+Multiple PDFs
+
+Features:
+
+Preview
+Gallery View
+Secure Download
+Officer Verification
+
+---
+
+# SOS MODULE UPGRADE
+
+Add:
+
+Resource Assignment
+
+Examples:
+
+Ambulance
+Water Tanker
+Fire Vehicle
+Police Unit
+Relief Team
+
+Add:
+
+Volunteer Assignment
+
+Track:
+
+Assigned Officer
+Assigned Resources
+Assigned Volunteers
+Response Timeline
+
+---
+
+# VOLUNTEER MODULE UPGRADE
+
+Workflow:
+
+Pending
+→ Approved
+→ Available
+→ Assigned
+→ Completed
+→ Available
+
+Approval authority:
+
+District Admin
+State Admin
+Super Admin
+
+Add:
+
+Skill Verification
+Background Verification
+Training Certification
+
+---
+
+# AUDIT LOGGING
+
+Mandatory for:
+
+Certificates
+Complaints
+SOS
+Volunteer Actions
+Officer Actions
+
+Store:
+
+Actor
+Role
+Timestamp
+Action
+Before State
+After State
+IP Metadata
+
+Audit logs are immutable.
+
+---
+
+# SECURITY REQUIREMENTS
+
+Citizen cannot:
+
+* Choose Department
+* Choose Officer
+* Choose Role
+* Choose Workflow Status
+* Choose Jurisdiction outside profile
+
+All routing and permissions must be enforced on backend.
+
+Never trust client-side values.
+
+---
+
+# FUTURE AI FEATURES (OPTIONAL)
+
+AI is NOT required for routing.
+
+Routing remains rule-based.
+
+AI may later assist with:
+
+* Complaint category prediction
+* Complaint duplicate detection
+* Complaint severity estimation
+* Certificate document quality checks
+* OCR extraction from uploaded documents
+
+Department assignment remains backend-controlled and deterministic.
 
 # Project Goal
 

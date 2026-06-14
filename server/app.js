@@ -8,6 +8,8 @@ const { API_V1_PREFIX } = require("./config/constants");
 const authRoutes = require("./routes/authRoutes");
 const complaintRoutes = require("./routes/complaintRoutes");
 const certificateRoutes = require("./routes/certificateRoutes");
+const certificateTemplateRoutes = require("./routes/certificateTemplateRoutes");
+const masterDataRoutes = require("./routes/masterDataRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
 const resourceRoutes = require("./routes/resourceRoutes");
 const volunteerRoutes = require("./routes/volunteerRoutes");
@@ -29,7 +31,6 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev", { stream: logger.stream }));
-// app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api", apiRateLimiter);
 
 app.get("/api/health", (_req, res) => {
@@ -50,14 +51,19 @@ app.get(`${API_V1_PREFIX}/health`, (_req, res) => {
 app.use("/api/auth", authRateLimiter, authRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/certificates", certificateRoutes);
+app.use("/api/certificate-templates", certificateTemplateRoutes);
+app.use("/api/master-data", masterDataRoutes);
 app.use("/api/emergencies", emergencyRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/volunteers", volunteerRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/files", fileRoutes);
+
 app.use(`${API_V1_PREFIX}/auth`, authRateLimiter, authRoutes);
 app.use(`${API_V1_PREFIX}/complaints`, complaintRoutes);
 app.use(`${API_V1_PREFIX}/certificates`, certificateRoutes);
+app.use(`${API_V1_PREFIX}/certificate-templates`, certificateTemplateRoutes);
+app.use(`${API_V1_PREFIX}/master-data`, masterDataRoutes);
 app.use(`${API_V1_PREFIX}/emergencies`, emergencyRoutes);
 app.use(`${API_V1_PREFIX}/resources`, resourceRoutes);
 app.use(`${API_V1_PREFIX}/volunteers`, volunteerRoutes);

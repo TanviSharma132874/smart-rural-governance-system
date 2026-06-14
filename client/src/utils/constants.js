@@ -26,7 +26,7 @@ export const DEPARTMENTS = [
 export const GOVERNMENT_DEPARTMENTS = DEPARTMENTS;
 export const EMERGENCY_DEPARTMENTS = DEPARTMENTS;
 
-export const COMPLAINT_STATUSES = ["Pending", "In Progress", "Resolved", "Rejected"];
+export const COMPLAINT_STATUSES = ["Pending", "Reviewed", "In Progress", "Resolved", "Closed", "Rejected"];
 export const COMPLAINT_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 export const COMPLAINT_CATEGORIES = [
   "Roads",
@@ -80,7 +80,7 @@ export const CERTIFICATE_TYPE_DEPARTMENTS = {
   "Senior Citizen Certificate": ["Social Welfare Department"],
   "Disability Certificate": ["Social Welfare Department"],
 };
-export const CERTIFICATE_STATUSES = ["Submitted", "Under Review", "Approved", "Rejected"];
+export const CERTIFICATE_STATUSES = ["Submitted", "Under Review", "Correction Required", "Resubmitted", "Approved", "Issued", "Rejected"];
 export const EMERGENCY_TYPES = [
   "Flood",
   "Fire",
@@ -116,7 +116,7 @@ export const VOLUNTEER_SKILLS = [
   "Communication",
   "Shelter Management",
 ];
-export const VOLUNTEER_AVAILABILITY = ["Available", "Assigned", "Unavailable"];
+export const VOLUNTEER_AVAILABILITY = ["Available", "Assigned", "Completed", "Unavailable"];
 export const VOLUNTEER_APPROVAL_STATUSES = ["Pending", "Approved", "Rejected"];
 export const ANNOUNCEMENT_TYPES = [
   "Flood Warning",

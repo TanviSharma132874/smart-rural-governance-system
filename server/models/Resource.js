@@ -82,6 +82,34 @@ const resourceAllocationSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const maintenanceSchema = new mongoose.Schema(
+  {
+    action: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    performedBy: {
+      type: String,
+      required: true,
+    },
+    maintenanceDate: {
+      type: Date,
+      default: Date.now,
+    },
+    nextServiceDate: {
+      type: Date,
+      default: null,
+    },
+    remarks: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+  },
+  { _id: false }
+);
+
 const resourceSchema = new mongoose.Schema(
   {
     resourceType: {
@@ -171,6 +199,10 @@ const resourceSchema = new mongoose.Schema(
     },
     allocationHistory: {
       type: [resourceAllocationSchema],
+      default: [],
+    },
+    maintenanceHistory: {
+      type: [maintenanceSchema],
       default: [],
     },
     lastAllocationAt: {

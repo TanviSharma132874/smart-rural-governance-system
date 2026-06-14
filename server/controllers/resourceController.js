@@ -43,6 +43,16 @@ const returnResource = asyncHandler(async (req, res) => {
   });
 });
 
+const addMaintenanceRecord = asyncHandler(async (req, res) => {
+  const resource = await resourceService.addMaintenanceRecord(req.params.id, req.body, req.user);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "Maintenance record added successfully",
+    data: { resource },
+  });
+});
+
 const deleteResource = asyncHandler(async (req, res) => {
   const resource = await resourceService.deleteResource(req.params.id, req.user);
 
@@ -58,5 +68,6 @@ module.exports = {
   getResources,
   updateResource,
   returnResource,
+  addMaintenanceRecord,
   deleteResource,
 };

@@ -76,7 +76,8 @@ function ComplaintDetailsCard({
       Pending: ["Reviewed", "Rejected"],
       Reviewed: ["In Progress", "Rejected"],
       "In Progress": ["Resolved", "Rejected"],
-      Resolved: [],
+      Resolved: ["Closed"],
+      Closed: [],
       Rejected: [],
     };
 
@@ -89,14 +90,17 @@ function ComplaintDetailsCard({
     if (isAdmin) return rawAllowed;
 
     if (role === "panchayatOfficer") {
-      // Panchayat can only Review or Reject
-      return rawAllowed.filter(s => ["Reviewed", "Rejected"].includes(s));
+      // Panchayat can Review or Reject Pending, or Close Resolved
+      if (complaint.status === "Pending") return ["Reviewed", "Rejected"];
+      if (complaint.status === "Resolved") return ["Closed"];
+      return [];
     }
 
     if (role === "departmentOfficer") {
-      // Department can only move Reviewed -> In Progress OR In Progress -> Resolved
-      if (complaint.status === "Pending") return []; // Must be reviewed first
-      return rawAllowed.filter(s => ["In Progress", "Resolved", "Rejected"].includes(s));
+      // Department can move Reviewed -> In Progress OR In Progress -> Resolved
+      if (complaint.status === "Reviewed") return ["In Progress", "Rejected"];
+      if (complaint.status === "In Progress") return ["Resolved", "Rejected"];
+      return [];
     }
 
     return [];
@@ -163,13 +167,6 @@ function ComplaintDetailsCard({
         <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-900">
           {getPriorityLabel(complaint.priority)} priority workflow
         </span>
-        <button
-          type="button"
-          onClick={() => setShowHistory(true)}
-          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-ink-900 transition hover:border-leaf-500 hover:text-leaf-600"
-        >
-          View audit trail
-        </button>
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -336,40 +333,84 @@ function ComplaintDetailsCard({
         </div>
       ) : null}
 
-      <BaseModal isOpen={showHistory} title="Complaint Audit Trail" onClose={() => setShowHistory(false)}>
-        <div className="space-y-3">
+      {/* Timeline Section */}
+      <div className="mt-8 border-t border-slate-100 pt-6">
+        <h3 className="font-display text-xl text-ink-950 flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-leaf-600" />
+          Complaint Workflow Timeline
+        </h3>
+        <p className="mt-2 text-xs text-slate-500 uppercase tracking-widest font-bold">Official Audit Trail</p>
+        
+        <div className="mt-6 space-y-0 relative">
+          <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-slate-100" />
+          
           {(complaint.statusHistory || []).length ? (
-            complaint.statusHistory.map((entry, index) => (
-              <div key={`${entry.status}-${entry.updatedAt}-${index}`} className="rounded-[24px] border border-slate-200 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <StatusBadge value={entry.status} />
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-800">
-                    {getRelativeTime(entry.updatedAt)}
-                  </p>
+            [...complaint.statusHistory].reverse().map((entry, index) => (
+              <div key={`${entry.status}-${entry.updatedAt}-${index}`} className="relative pl-10 pb-8 last:pb-0">
+                <div className={`absolute left-0 top-1 h-8 w-8 rounded-full border-4 border-white shadow-sm flex items-center justify-center text-white text-[10px] font-bold ${
+                  index === 0 ? 'bg-leaf-600' : 'bg-slate-300'
+                }`}>
+                  {complaint.statusHistory.length - index}
                 </div>
-                {entry.action ? <p className="mt-3 text-sm font-semibold text-ink-950">{entry.action}</p> : null}
-                <p className="mt-3 text-sm text-ink-900">
-                  Updated by: <span className="font-bold">{entry.updatedBy?.name || "System"}</span>
-                </p>
-                {entry.responsibleDepartment ? <p className="mt-2 text-sm text-ink-800">Department: {entry.responsibleDepartment}</p> : null}
-                {entry.remarks ? <p className="mt-2 text-sm text-ink-800">Remarks: {entry.remarks}</p> : null}
-                {entry.resolutionNotes ? <p className="mt-2 text-sm text-ink-800">Resolution Notes: {entry.resolutionNotes}</p> : null}
-                {entry.resolutionImages?.length ? (
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {entry.resolutionImages.map((image) => (
-                      <div key={image} className="overflow-hidden rounded-2xl border border-slate-200">
-                        <ProtectedImage src={image} alt="Complaint timeline evidence" className="h-24 w-full object-cover" />
-                      </div>
-                    ))}
+                
+                <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                    <StatusBadge value={entry.status} />
+                    <p className="text-[10px] font-bold uppercase tracking-tighter text-slate-400">
+                      {new Date(entry.updatedAt).toLocaleString("en-IN", { 
+                        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                      })}
+                    </p>
                   </div>
-                ) : null}
+                  
+                  <p className="text-sm font-bold text-ink-950 leading-tight">{entry.action || `Status changed to ${entry.status}`}</p>
+                  
+                  <div className="mt-3 flex flex-col gap-1">
+                    <p className="text-xs text-ink-900">
+                      <span className="text-slate-400 uppercase text-[9px] font-bold mr-1">Actor:</span>
+                      <span className="font-semibold">{entry.updatedBy?.name || "System"}</span>
+                      {entry.updatedBy?.role ? <span className="text-leaf-600 ml-1">({entry.updatedBy.role})</span> : null}
+                    </p>
+                    {entry.responsibleDepartment ? (
+                      <p className="text-xs text-ink-800">
+                        <span className="text-slate-400 uppercase text-[9px] font-bold mr-1">Dept:</span>
+                        {entry.responsibleDepartment}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {entry.remarks ? (
+                    <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs italic text-slate-600 border-l-2 border-slate-200">
+                      "{entry.remarks}"
+                    </div>
+                  ) : null}
+
+                  {entry.resolutionNotes ? (
+                    <div className="mt-3 rounded-xl bg-leaf-50 p-3 text-xs text-leaf-900 border-l-2 border-leaf-200">
+                      <p className="font-bold mb-1 uppercase text-[9px]">Resolution Notes</p>
+                      {entry.resolutionNotes}
+                    </div>
+                  ) : null}
+
+                  {entry.resolutionImages?.length ? (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      {entry.resolutionImages.map((image) => (
+                        <div key={image} className="overflow-hidden rounded-xl border border-slate-100">
+                          <ProtectedImage src={image} alt="Resolution proof" className="h-20 w-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ))
           ) : (
-            <p className="text-sm text-ink-800">No workflow history recorded yet.</p>
+            <div className="pl-10">
+              <p className="text-sm text-slate-500 italic">No workflow history recorded yet.</p>
+            </div>
           )}
         </div>
-      </BaseModal>
+      </div>
     </section>
   );
 }

@@ -1,14 +1,14 @@
 const Certificate = require("../models/Certificate");
+const CertificateTemplate = require("../models/CertificateTemplate");
 const Counter = require("../models/Counter");
+const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const logger = require("../utils/logger");
+const { logAction } = require("../utils/auditLogger");
 const { buildCertificatePdfBuffer } = require("./pdfService");
 const { generateCertificateVerificationAssets } = require("./qrCodeService");
 const { emitRealtimeEvent } = require("../sockets");
-const {
-  CERTIFICATE_TYPE_DEPARTMENTS,
-  OFFICER_ROLES,
-} = require("../config/constants");
+const { OFFICER_ROLES } = require("../config/constants");
 
 const CERTIFICATE_TRANSITIONS = {
   Submitted: ["Under Review"],
@@ -24,7 +24,7 @@ const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
 
 const listPopulateOptions = [
-  { path: "applicant", select: "name email phone role department jurisdictionType state district tehsil village municipality" },
+  { path: "applicant", select: "name email phone role department jurisdictionType state district tehsil village municipality aadhaarNumber dateOfBirth gender fatherName motherName address ward pincode occupation" },
   { path: "approvedBy", select: "name email role department" },
 ];
 
@@ -50,6 +50,15 @@ const formatUser = (user) => {
     tehsil: user.tehsil || "",
     village: user.village || "",
     municipality: user.municipality || "",
+    aadhaarNumber: user.aadhaarNumber ? `XXXX-XXXX-${user.aadhaarNumber.slice(-4)}` : "",
+    dateOfBirth: user.dateOfBirth,
+    gender: user.gender,
+    fatherName: user.fatherName,
+    motherName: user.motherName,
+    address: user.address,
+    ward: user.ward,
+    pincode: user.pincode,
+    occupation: user.occupation,
   };
 };
 
@@ -62,18 +71,26 @@ const formatCertificate = (certificate) => ({
   state: certificate.state,
   district: certificate.district,
   tehsil: certificate.tehsil,
+  panchayat: certificate.panchayat,
   village: certificate.village,
   municipality: certificate.municipality,
+  ward: certificate.ward,
   status: certificate.status,
-  uploadedDocuments: (certificate.uploadedDocuments || []).map((doc) => doc.replace(/^\/uploads\//, "/api/v1/files/")),
+  uploadedDocuments: (certificate.uploadedDocuments || []).map((doc) => ({
+    ...doc.toObject(),
+    path: doc.path.replace(/^\/uploads\//, "/api/v1/files/"),
+  })),
   certificateDetails: certificate.certificateDetails || {},
+  currentVersion: certificate.currentVersion,
+  correctionRequest: certificate.correctionRequest,
+  expiryDate: certificate.expiryDate,
+  certificateNumber: certificate.certificateNumber,
   remarks: certificate.remarks,
   approvedBy: formatUser(certificate.approvedBy),
   issuedAt: certificate.issuedAt,
   applicationNumber: certificate.applicationNumber,
   qrCode: certificate.qrCode,
   digitalSignature: certificate.digitalSignature,
-  departmentSeal: certificate.departmentSeal,
   verificationUrl: certificate.verificationUrl,
   isDeleted: certificate.isDeleted,
   statusHistory: (certificate.statusHistory || []).map((entry) => ({
@@ -83,235 +100,188 @@ const formatCertificate = (certificate) => ({
     department: entry.department,
     updatedBy: formatUser(entry.updatedBy),
     updatedAt: entry.updatedAt,
+    version: entry.version,
+    detailsSnapshot: entry.detailsSnapshot,
+    documentsSnapshot: entry.documentsSnapshot,
   })),
   createdAt: certificate.createdAt,
   updatedAt: certificate.updatedAt,
 });
 
-const buildPagination = (page, limit, totalItems, key = "totalItems") => ({
-  page,
-  limit,
-  totalPages: totalItems === 0 ? 0 : Math.ceil(totalItems / limit),
-  [key]: totalItems,
-});
-
 const nextApplicationNumber = async () => {
   const year = new Date().getFullYear();
   const counter = await Counter.findOneAndUpdate(
-    { key: `CERT-${year}` },
+    { key: `CERT-APP-${year}` },
     { $inc: { sequence: 1 } },
     { new: true, upsert: true }
   );
 
-  return `CERT-${year}-${String(counter.sequence).padStart(4, "0")}`;
+  return `APP-${year}-${String(counter.sequence).padStart(6, "0")}`;
 };
 
-const buildJurisdiction = (payload, user) => {
-  const jurisdictionType = payload.jurisdictionType || user.jurisdictionType || "Rural";
+const nextCertificateNumber = async (type) => {
+  const code = type.split(" ").map(w => w[0]).join("").toUpperCase();
+  const counter = await Counter.findOneAndUpdate(
+    { key: `CERT-NUM-${code}` },
+    { $inc: { sequence: 1 } },
+    { new: true, upsert: true }
+  );
 
-  return {
-    jurisdictionType,
-    state: payload.state || user.state || "Rajasthan",
-    district: payload.district || user.district || "",
-    tehsil: payload.tehsil || user.tehsil || "",
-    village: jurisdictionType === "Rural" ? payload.village || user.village || "" : "",
-    municipality: jurisdictionType === "Urban" ? payload.municipality || user.municipality || "" : "",
-  };
+  return `${code}-${new Date().getFullYear()}-${String(counter.sequence).padStart(6, "0")}`;
 };
-
-const buildJurisdictionQuery = (user) => {
-  if (user.role === "superAdmin") {
-    return {};
-  }
-
-  const query = {};
-
-  if (user.state) {
-    query.state = user.state;
-  }
-
-  if (user.role === "stateAdmin") {
-    return query;
-  }
-
-  if (user.district) {
-    query.district = user.district;
-  }
-
-  if (user.role === "districtAdmin") {
-    return query;
-  }
-
-  if (user.tehsil) {
-    query.tehsil = user.tehsil;
-  }
-
-  if (user.jurisdictionType) {
-    query.jurisdictionType = user.jurisdictionType;
-  }
-
-  if (user.jurisdictionType === "Rural" && user.village) {
-    query.village = user.village;
-  }
-
-  if (user.jurisdictionType === "Urban" && user.municipality) {
-    query.municipality = user.municipality;
-  }
-
-  return query;
-};
-
-const ensureJurisdictionAccess = (user, certificate) => {
-  if (user.role === "superAdmin") {
-    return;
-  }
-
-  if (user.state && user.state !== certificate.state) {
-    throw new AppError("You are not authorized for certificates outside your state jurisdiction", 403);
-  }
-
-  if (["districtAdmin", "departmentOfficer", "panchayatOfficer"].includes(user.role) && user.district && user.district !== certificate.district) {
-    throw new AppError("You are not authorized for certificates outside your district jurisdiction", 403);
-  }
-
-  if (["departmentOfficer", "panchayatOfficer"].includes(user.role)) {
-    if (user.tehsil && user.tehsil !== certificate.tehsil) {
-      throw new AppError("You are not authorized for certificates outside your tehsil or block", 403);
-    }
-
-    if (user.jurisdictionType === "Rural" && user.village && user.village !== certificate.village) {
-      throw new AppError("You are not authorized for certificates outside your village jurisdiction", 403);
-    }
-
-    if (user.jurisdictionType === "Urban" && user.municipality && user.municipality !== certificate.municipality) {
-      throw new AppError("You are not authorized for certificates outside your municipality jurisdiction", 403);
-    }
-  }
-};
-
-const ensureDepartmentAccess = (user, certificateType, department) => {
-  const allowedDepartments = CERTIFICATE_TYPE_DEPARTMENTS[certificateType] || [];
-
-  if (!allowedDepartments.includes(department)) {
-    throw new AppError("Certificate type and department mapping is invalid", 400);
-  }
-
-  if (["departmentOfficer", "panchayatOfficer"].includes(user.role) && user.department !== department) {
-    throw new AppError("You are not authorized for this department queue", 403);
-  }
-};
-
-const normalizeDocuments = (files = []) => files.map((file) => `/uploads/certificates/${file.filename}`);
-const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const normalizeListOptions = (filters = {}) => {
-  const page = Math.max(Number.parseInt(filters.page, 10) || DEFAULT_PAGE, 1);
-  const requestedLimit = Number.parseInt(filters.limit, 10) || DEFAULT_LIMIT;
-  const limit = Math.min(Math.max(requestedLimit, 1), MAX_LIMIT);
-  const search = typeof filters.search === "string" ? filters.search.trim() : "";
-  const status = typeof filters.status === "string" ? filters.status.trim() : "";
-  const certificateType = typeof filters.certificateType === "string" ? filters.certificateType.trim() : "";
-  const department = typeof filters.department === "string" ? filters.department.trim() : "";
-  const sort = filters.sort === "oldest" ? "oldest" : "latest";
-
-  return {
-    page,
-    limit,
-    skip: (page - 1) * limit,
-    search,
-    status,
-    certificateType,
-    department,
-    sort,
-  };
-};
-
-const addListFiltersToQuery = (query, options) => {
-  if (options.status) {
-    query.status = options.status;
-  }
-
-  if (options.certificateType) {
-    query.certificateType = options.certificateType;
-  }
-
-  if (options.department) {
-    query.department = options.department;
-  }
-
-  if (options.search) {
-    const searchRegex = new RegExp(escapeRegex(options.search), "i");
-    query.$or = [
-      { applicationNumber: searchRegex },
-      { certificateType: searchRegex },
-      { remarks: searchRegex },
-    ];
-  }
-
-  return query;
-};
-
-const createHistoryEntry = ({ status, action, remarks, department, userId }) => ({
-  status,
-  action,
-  remarks: remarks || "",
-  department,
-  updatedBy: userId,
-});
 
 const applyCertificate = async (payload, user, files = []) => {
-  // Derive department automatically from certificate type (Backend Control)
-  const allowedDepartments = CERTIFICATE_TYPE_DEPARTMENTS[payload.certificateType] || [];
-  const department = allowedDepartments[0] || "Revenue Department";
+  const template = await CertificateTemplate.findOne({ code: payload.certificateType, isActive: true });
+  if (!template) {
+    throw new AppError("Invalid or inactive certificate type selected", 400);
+  }
 
-  ensureDepartmentAccess({ role: "departmentOfficer", department }, payload.certificateType, department);
-  
+  const department = template.department;
+  const applicationNumber = await nextApplicationNumber();
+
+  // Citizen Identity Source of Truth (Auto-Fill)
+  const userData = await User.findById(user.id);
+  if (!userData) throw new AppError("User profile not found", 404);
+
   let certificateDetails = {};
   if (payload.certificateDetails) {
     try {
-      certificateDetails =
-        typeof payload.certificateDetails === "string" ? JSON.parse(payload.certificateDetails) : payload.certificateDetails;
+      certificateDetails = typeof payload.certificateDetails === "string" ? JSON.parse(payload.certificateDetails) : payload.certificateDetails;
     } catch (_error) {
       throw new AppError("Certificate details payload is invalid", 400);
     }
   }
-  const applicationNumber = await nextApplicationNumber();
+
+  // Validate dynamic fields against template
+  template.fields.forEach(field => {
+    if (field.required && !certificateDetails[field.name]) {
+      throw new AppError(`Missing mandatory field: ${field.label}`, 400);
+    }
+  });
+
+  // Multi-document mapping with categories
+  const uploadedDocuments = files.map((file, index) => {
+    const category = Array.isArray(payload.documentCategories) ? payload.documentCategories[index] : (payload.documentCategories || "General Supporting");
+    return {
+      name: file.originalname,
+      path: `/uploads/certificates/${file.filename}`,
+      category: category,
+      verified: false,
+    };
+  });
+
+  // Validate required documents
+  template.requiredDocuments.forEach(doc => {
+    if (doc.mandatory) {
+      const isPresent = uploadedDocuments.some(u => u.category === doc.category);
+      if (!isPresent) {
+        throw new AppError(`Mandatory document missing: ${doc.label || doc.category}`, 400);
+      }
+    }
+  });
+
   const certificate = await Certificate.create({
     applicant: user.id,
-    certificateType: payload.certificateType,
+    certificateType: template.name,
     department,
-    ...buildJurisdiction(payload, user),
-    uploadedDocuments: normalizeDocuments(files),
-    certificateDetails,
-    remarks: payload.remarks || "",
+    jurisdictionType: userData.jurisdictionType,
+    state: userData.state,
+    district: userData.district,
+    tehsil: userData.tehsil,
+    panchayat: userData.panchayat,
+    village: userData.village,
+    municipality: userData.municipality,
+    ward: userData.ward,
     applicationNumber,
+    certificateDetails,
+    uploadedDocuments,
+    status: "Submitted",
+    currentVersion: 1,
     statusHistory: [
-      createHistoryEntry({
+      {
         status: "Submitted",
-        action: "Application Submitted",
-        remarks: payload.remarks,
+        action: "Initial Application Submission",
+        remarks: payload.remarks || "New application",
         department,
-        userId: user.id,
-      }),
+        updatedBy: user.id,
+        version: 1,
+        detailsSnapshot: certificateDetails,
+        documentsSnapshot: uploadedDocuments.map(d => d.path),
+      },
     ],
   });
 
   await certificate.populate(detailPopulateOptions);
-  logger.info("Certificate application submitted", {
-    certificateId: certificate._id.toString(),
-    applicationNumber,
-    applicantId: user.id.toString(),
-    derivedDepartment: department,
+  
+  const formatted = formatCertificate(certificate);
+  emitRealtimeEvent(
+    [`user:${user.id}`, `district:${certificate.district}`, `department:${certificate.department}`],
+    "certificate:submitted",
+    { certificate: formatted }
+  );
+
+  return formatted;
+};
+
+const applyCorrection = async (certificateId, payload, user, files = []) => {
+  const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false });
+  if (!certificate) throw new AppError("Original certificate not found", 404);
+
+  if (certificate.applicant.toString() !== user.id.toString()) {
+    throw new AppError("You can only apply for corrections on your own certificates", 403);
+  }
+
+  const nextVersion = certificate.currentVersion + 1;
+
+  let certificateDetails = {};
+  if (payload.requestedChanges) {
+    try {
+      certificateDetails = typeof payload.requestedChanges === "string" ? JSON.parse(payload.requestedChanges) : payload.requestedChanges;
+    } catch (_error) {
+      certificateDetails = { changes: payload.requestedChanges };
+    }
+  }
+
+  const uploadedDocuments = files.map((file, index) => {
+    const category = Array.isArray(payload.documentCategories) ? payload.documentCategories[index] : (payload.documentCategories || "Correction Support");
+    return {
+      name: file.originalname,
+      path: `/uploads/certificates/${file.filename}`,
+      category: category,
+      verified: false,
+    };
   });
+
+  certificate.status = "Submitted";
+  certificate.currentVersion = nextVersion;
+  certificate.correctionRequest = {
+    reasonForChange: payload.reasonForChange,
+    requestedChanges: payload.requestedChanges,
+    previousCertificateNumber: certificate.certificateNumber || certificate.applicationNumber,
+  };
+  
+  // Update details with changes
+  certificate.certificateDetails = { ...certificate.certificateDetails, ...certificateDetails };
+  certificate.uploadedDocuments = [...certificate.uploadedDocuments, ...uploadedDocuments];
+
+  certificate.statusHistory.push({
+    status: "Submitted",
+    action: `Correction Application (v${nextVersion})`,
+    remarks: payload.reasonForChange,
+    department: certificate.department,
+    updatedBy: user.id,
+    version: nextVersion,
+    detailsSnapshot: certificate.certificateDetails,
+    documentsSnapshot: certificate.uploadedDocuments.map(d => d.path),
+  });
+
+  await certificate.save();
+  await certificate.populate(detailPopulateOptions);
 
   const formatted = formatCertificate(certificate);
   emitRealtimeEvent(
-    [
-      `user:${user.id}`,
-      `district:${certificate.district}`,
-      `department:${certificate.department}`,
-    ],
-    "certificate:submitted",
+    [`user:${user.id}`, `district:${certificate.district}`, `department:${certificate.department}`],
+    "certificate:updated",
     { certificate: formatted }
   );
 
@@ -321,62 +291,42 @@ const applyCertificate = async (payload, user, files = []) => {
 const resubmitCertificate = async (certificateId, payload, user, files = []) => {
   const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false });
 
-  if (!certificate) {
-    throw new AppError("Certificate application not found", 404);
-  }
+  if (!certificate) throw new AppError("Certificate application not found", 404);
+  if (certificate.applicant.toString() !== user.id.toString()) throw new AppError("Unauthorized", 403);
+  if (certificate.status !== "Correction Required") throw new AppError("Invalid status for resubmission", 400);
 
-  if (certificate.applicant.toString() !== user.id.toString()) {
-    throw new AppError("You are not authorized to resubmit this application", 403);
-  }
-
-  if (certificate.status !== "Correction Required") {
-    throw new AppError(
-      `Only applications with 'Correction Required' status can be resubmitted. Current status: ${certificate.status}`,
-      400
-    );
-  }
-
-  // Update details
   if (payload.certificateDetails) {
     try {
-      const details =
-        typeof payload.certificateDetails === "string"
-          ? JSON.parse(payload.certificateDetails)
-          : payload.certificateDetails;
+      const details = typeof payload.certificateDetails === "string" ? JSON.parse(payload.certificateDetails) : payload.certificateDetails;
       certificate.certificateDetails = { ...certificate.certificateDetails, ...details };
-    } catch (_error) {
-      throw new AppError("Certificate details payload is invalid", 400);
-    }
+    } catch (_error) { throw new AppError("Invalid details", 400); }
   }
 
-  if (payload.remarks) {
-    certificate.remarks = payload.remarks;
-  }
+  const newDocs = files.map((file, index) => {
+    const category = Array.isArray(payload.documentCategories) ? payload.documentCategories[index] : (payload.documentCategories || "Resubmission");
+    return {
+      name: file.originalname,
+      path: `/uploads/certificates/${file.filename}`,
+      category: category,
+      verified: false,
+    };
+  });
 
-  // Append new documents if any
-  const newDocs = normalizeDocuments(files);
-  if (newDocs.length) {
-    certificate.uploadedDocuments = [...certificate.uploadedDocuments, ...newDocs];
-  }
-
+  certificate.uploadedDocuments = [...certificate.uploadedDocuments, ...newDocs];
   certificate.status = "Resubmitted";
-  certificate.statusHistory.push(
-    createHistoryEntry({
-      status: "Resubmitted",
-      action: "Application Resubmitted by Citizen",
-      remarks: payload.remarks || "Resubmitted with requested corrections",
-      department: certificate.department,
-      userId: user.id,
-    })
-  );
+  certificate.statusHistory.push({
+    status: "Resubmitted",
+    action: "Resubmission by Citizen",
+    remarks: payload.remarks || "Resubmitted",
+    department: certificate.department,
+    updatedBy: user.id,
+    version: certificate.currentVersion,
+    detailsSnapshot: certificate.certificateDetails,
+    documentsSnapshot: certificate.uploadedDocuments.map(d => d.path),
+  });
 
   await certificate.save();
   await certificate.populate(detailPopulateOptions);
-
-  logger.info("Certificate application resubmitted", {
-    certificateId: certificate._id.toString(),
-    applicantId: user.id.toString(),
-  });
 
   const formatted = formatCertificate(certificate);
   emitRealtimeEvent(
@@ -389,57 +339,64 @@ const resubmitCertificate = async (certificateId, payload, user, files = []) => 
 };
 
 const getMyApplications = async (user, filters = {}) => {
-  const options = normalizeListOptions(filters);
-  const query = addListFiltersToQuery(
-    {
-      applicant: user.id,
-      isDeleted: false,
-    },
-    options
-  );
+  const options = typeof filters === "string" ? { page: 1, limit: 10 } : filters;
+  const page = Math.max(Number.parseInt(options.page, 10) || DEFAULT_PAGE, 1);
+  const limit = Math.min(Math.max(Number.parseInt(options.limit, 10) || DEFAULT_LIMIT, 1), MAX_LIMIT);
+  const skip = (page - 1) * limit;
+
+  const query = { applicant: user.id, isDeleted: false };
+  if (options.status) query.status = options.status;
+  if (options.certificateType) query.certificateType = options.certificateType;
 
   const [totalApplications, certificates] = await Promise.all([
     Certificate.countDocuments(query),
     Certificate.find(query)
       .populate(listPopulateOptions)
-      .sort({ createdAt: options.sort === "oldest" ? 1 : -1 })
-      .skip(options.skip)
-      .limit(options.limit)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean(),
   ]);
 
   return {
     certificates: certificates.map(formatCertificate),
-    pagination: buildPagination(options.page, options.limit, totalApplications, "totalApplications"),
+    pagination: { page, limit, totalPages: Math.ceil(totalApplications / limit), totalApplications },
   };
 };
 
 const getDepartmentQueue = async (user, filters = {}) => {
-  const options = normalizeListOptions(filters);
-  const query = {
-    isDeleted: false,
-    ...buildJurisdictionQuery(user),
-  };
+  const page = Math.max(Number.parseInt(filters.page, 10) || DEFAULT_PAGE, 1);
+  const limit = Math.min(Math.max(Number.parseInt(filters.limit, 10) || DEFAULT_LIMIT, 1), MAX_LIMIT);
+  const skip = (page - 1) * limit;
 
-  if (["departmentOfficer", "panchayatOfficer"].includes(user.role) && user.department) {
-    query.department = user.department;
+  const query = { isDeleted: false };
+  if (user.role !== "superAdmin") {
+    if (user.state) query.state = user.state;
+    if (user.district && user.role !== "stateAdmin") query.district = user.district;
+    if (["departmentOfficer", "panchayatOfficer"].includes(user.role)) {
+      query.department = user.department;
+      if (user.tehsil) query.tehsil = user.tehsil;
+      if (user.village) query.village = user.village;
+      if (user.municipality) query.municipality = user.municipality;
+    }
   }
 
-  addListFiltersToQuery(query, options);
+  if (filters.status) query.status = filters.status;
+  if (filters.certificateType) query.certificateType = filters.certificateType;
 
   const [totalCertificates, certificates] = await Promise.all([
     Certificate.countDocuments(query),
     Certificate.find(query)
       .populate(listPopulateOptions)
-      .sort({ createdAt: options.sort === "oldest" ? 1 : -1 })
-      .skip(options.skip)
-      .limit(options.limit)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean(),
   ]);
 
   return {
     certificates: certificates.map(formatCertificate),
-    pagination: buildPagination(options.page, options.limit, totalCertificates, "totalCertificates"),
+    pagination: { page, limit, totalPages: Math.ceil(totalCertificates / limit), totalCertificates },
   };
 };
 
@@ -448,103 +405,25 @@ const getCertificateById = async (certificateId, user) => {
     .populate(detailPopulateOptions)
     .lean();
 
-  if (!certificate) {
-    throw new AppError("Certificate application not found", 404);
-  }
-
-  if (user.role === "citizen") {
-    if (certificate.applicant?._id.toString() !== user.id.toString()) {
-      throw new AppError("You are not authorized to view this certificate", 403);
-    }
-
-    return formatCertificate(certificate);
-  }
-
-  if (!OFFICER_ROLES.includes(user.role)) {
-    throw new AppError("You are not authorized to view this certificate", 403);
-  }
-
-  ensureJurisdictionAccess(user, certificate);
-
-  if (["departmentOfficer", "panchayatOfficer"].includes(user.role) && user.department !== certificate.department) {
-    throw new AppError("You are not authorized for this department certificate", 403);
+  if (!certificate) throw new AppError("Certificate not found", 404);
+  
+  if (user.role === "citizen" && certificate.applicant?._id.toString() !== user.id.toString()) {
+    throw new AppError("Unauthorized", 403);
   }
 
   return formatCertificate(certificate);
 };
 
-const reviewCertificate = async (certificateId, payload, user) => {
-  const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false });
-
-  if (!certificate) {
-    throw new AppError("Certificate application not found", 404);
-  }
-
-  ensureJurisdictionAccess(user, certificate);
-  ensureDepartmentAccess(user, certificate.certificateType, certificate.department);
-
-  if (!CERTIFICATE_TRANSITIONS[certificate.status].includes("Under Review")) {
-    throw new AppError(`Certificate cannot move from ${certificate.status} to Under Review`, 400);
-  }
-
-  certificate.status = "Under Review";
-  certificate.remarks = payload.remarks || certificate.remarks;
-  certificate.statusHistory.push(
-    createHistoryEntry({
-      status: "Under Review",
-      action: "Department Review Started",
-      remarks: payload.remarks,
-      department: certificate.department,
-      userId: user.id,
-    })
-  );
-
-  await certificate.save();
-  await certificate.populate(detailPopulateOptions);
-  logger.info("Certificate moved to review", {
-    certificateId: certificate._id.toString(),
-    reviewedBy: user.id.toString(),
-  });
-
-  const formatted = formatCertificate(certificate);
-  emitRealtimeEvent(
-    [
-      `user:${certificate.applicant?._id || certificate.applicant}`,
-      `district:${certificate.district}`,
-      `department:${certificate.department}`,
-    ],
-    "certificate:updated",
-    { certificate: formatted }
-  );
-
-  return formatted;
-};
-
 const updateCertificateStatus = async (certificateId, payload, user) => {
   const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false });
-
-  if (!certificate) {
-    throw new AppError("Certificate application not found", 404);
-  }
-
-  ensureJurisdictionAccess(user, certificate);
-  ensureDepartmentAccess(user, certificate.certificateType, certificate.department);
+  if (!certificate) throw new AppError("Not found", 404);
 
   if (!CERTIFICATE_TRANSITIONS[certificate.status].includes(payload.status)) {
-    throw new AppError(`Invalid certificate status transition from ${certificate.status} to ${payload.status}`, 400);
+    throw new AppError(`Invalid transition from ${certificate.status} to ${payload.status}`, 400);
   }
 
   certificate.status = payload.status;
   certificate.remarks = payload.remarks || certificate.remarks;
-  certificate.statusHistory.push(
-    createHistoryEntry({
-      status: payload.status,
-      action: payload.status === "Approved" ? "Certificate Approved" : "Certificate Rejected",
-      remarks: payload.remarks,
-      department: certificate.department,
-      userId: user.id,
-    })
-  );
 
   if (payload.status === "Approved") {
     const verificationAssets = await generateCertificateVerificationAssets({
@@ -555,139 +434,92 @@ const updateCertificateStatus = async (certificateId, payload, user) => {
     certificate.issuedAt = new Date();
     certificate.qrCode = verificationAssets.qrCode;
     certificate.verificationUrl = verificationAssets.verificationUrl;
-    certificate.digitalSignature = `${user.name || "Officer"} (${user.department || certificate.department})`;
-    certificate.departmentSeal = `${certificate.department} Official Seal`;
+    certificate.digitalSignature = `${user.name} (${user.department})`;
+    certificate.certificateNumber = await nextCertificateNumber(certificate.certificateType);
+    certificate.expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000 * 3); // 3 years default
 
-    // System automatically Issues the certificate after Approval and Asset Generation
     certificate.status = "Issued";
-    certificate.statusHistory.push(
-      createHistoryEntry({
-        status: "Issued",
-        action: "Certificate Issued by System",
-        remarks: "Certificate generated and signed successfully",
-        department: certificate.department,
-        userId: user.id,
-      })
-    );
-  } else {
-    certificate.approvedBy = undefined;
-    certificate.issuedAt = undefined;
-    certificate.qrCode = "";
-    certificate.verificationUrl = "";
-    certificate.digitalSignature = "";
-    certificate.departmentSeal = "";
   }
+
+  certificate.statusHistory.push({
+    status: certificate.status,
+    action: `Workflow Update: ${certificate.status}`,
+    remarks: payload.remarks,
+    department: certificate.department,
+    updatedBy: user.id,
+    version: certificate.currentVersion,
+    detailsSnapshot: certificate.certificateDetails,
+    documentsSnapshot: certificate.uploadedDocuments.map(d => d.path),
+  });
 
   await certificate.save();
   await certificate.populate(detailPopulateOptions);
-  logger.info("Certificate status updated", {
-    certificateId: certificate._id.toString(),
-    status: certificate.status,
-    updatedBy: user.id.toString(),
-  });
 
   const formatted = formatCertificate(certificate);
-  const rooms = [
-    `user:${certificate.applicant?._id || certificate.applicant}`,
-    `district:${certificate.district}`,
-    `department:${certificate.department}`,
-  ];
-  emitRealtimeEvent(rooms, "certificate:updated", { certificate: formatted });
-  if (certificate.status === "Approved") {
-    emitRealtimeEvent(rooms, "certificate:approved", { certificate: formatted });
-  } else if (certificate.status === "Rejected") {
-    emitRealtimeEvent(rooms, "certificate:rejected", { certificate: formatted });
-  }
+  emitRealtimeEvent(
+    [`user:${certificate.applicant._id}`, `district:${certificate.district}`, `department:${certificate.department}`],
+    "certificate:updated",
+    { certificate: formatted }
+  );
 
   return formatted;
 };
 
-const verifyCertificate = async (certificateId) => {
-  const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false })
-    .populate(detailPopulateOptions)
-    .lean();
-
-  if (!certificate) {
-    throw new AppError("Certificate not found for verification", 404);
-  }
-
-  return {
-    verified: certificate.status === "Approved",
-    certificate: formatCertificate(certificate),
-  };
-};
-
 const downloadCertificate = async (certificateId, user) => {
-  const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false })
-    .populate(detailPopulateOptions)
-    .lean();
-
-  if (!certificate) {
-    throw new AppError("Certificate application not found", 404);
-  }
-
-  if (certificate.status !== "Approved") {
-    throw new AppError("Only approved certificates can be downloaded", 400);
-  }
-
-  const isCitizenOwner = user.role === "citizen" && certificate.applicant?._id.toString() === user.id.toString();
-
-  if (!isCitizenOwner && !OFFICER_ROLES.includes(user.role)) {
-    throw new AppError("You are not authorized to download this certificate", 403);
-  }
-
-  if (OFFICER_ROLES.includes(user.role)) {
-    ensureJurisdictionAccess(user, certificate);
-  }
+  const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false }).populate(detailPopulateOptions).lean();
+  if (!certificate || certificate.status !== "Issued") throw new AppError("Not issued", 404);
 
   const pdfBuffer = await buildCertificatePdfBuffer(certificate);
-
-  return {
-    filename: `${certificate.applicationNumber}.pdf`,
-    pdfBuffer,
-  };
+  return { filename: `${certificate.certificateNumber}.pdf`, pdfBuffer };
 };
 
 const deleteCertificate = async (certificateId, user) => {
   const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false });
-
-  if (!certificate) {
-    throw new AppError("Certificate application not found", 404);
-  }
-
-  const isCitizenOwner = user.role === "citizen" && certificate.applicant.toString() === user.id.toString();
-  const isAdmin = ["districtAdmin", "stateAdmin", "superAdmin"].includes(user.role);
-
-  if (!isCitizenOwner && !isAdmin) {
-    throw new AppError("You are not authorized to archive this certificate", 403);
-  }
-
-  if (isCitizenOwner && certificate.status !== "Submitted") {
-    throw new AppError("Citizens can only archive applications that are still submitted", 400);
-  }
+  if (!certificate) throw new AppError("Not found", 404);
 
   certificate.isDeleted = true;
   certificate.deletedAt = new Date();
   certificate.deletedBy = user.id;
-
   await certificate.save();
-  await certificate.populate(detailPopulateOptions);
-  logger.warn("Certificate application archived", {
-    certificateId: certificate._id.toString(),
-    archivedBy: user.id.toString(),
-  });
 
   return formatCertificate(certificate);
 };
 
+const verifyCertificatePublic = async (certificateNumber) => {
+  const certificate = await Certificate.findOne({ certificateNumber, isDeleted: false })
+    .populate({ path: "applicant", select: "name" })
+    .lean();
+
+  if (!certificate) {
+    return { status: "Invalid", message: "No such certificate found in our registry." };
+  }
+
+  const now = new Date();
+  const isExpired = certificate.expiryDate && new Date(certificate.expiryDate) < now;
+
+  return {
+    status: isExpired ? "Expired" : certificate.status,
+    applicationNumber: certificate.applicationNumber,
+    certificateNumber: certificate.certificateNumber,
+    certificateType: certificate.certificateType,
+    issuedTo: certificate.applicant?.name,
+    issuedAt: certificate.issuedAt,
+    expiryDate: certificate.expiryDate,
+    department: certificate.department,
+    district: certificate.district,
+    isValid: !isExpired && certificate.status === "Issued",
+  };
+};
+
 module.exports = {
   applyCertificate,
+  applyCorrection,
+  resubmitCertificate,
   getMyApplications,
   getDepartmentQueue,
   getCertificateById,
-  reviewCertificate,
   updateCertificateStatus,
-  verifyCertificate,
   downloadCertificate,
   deleteCertificate,
+  verifyCertificatePublic,
 };

@@ -47,7 +47,7 @@ const getFile = asyncHandler(async (req, res, next) => {
 
   if (category === "certificates") {
     const certificate = await Certificate.findOne({
-      uploadedDocuments: dbPath,
+      "uploadedDocuments.path": dbPath,
       isDeleted: false,
     });
     

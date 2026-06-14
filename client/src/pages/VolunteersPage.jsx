@@ -218,12 +218,21 @@ function VolunteersPage() {
           {
             key: "actions",
             label: "Actions",
-            render: (row) =>
-              canApprove && row.approvalStatus !== "Approved" ? (
-                <button type="button" onClick={async () => { try { await volunteerService.approve(row.id, { approvalStatus: "Approved" }); toast.success("Volunteer approved."); const response = await volunteerService.list({ page, limit: 10, ...(approvalFilter ? { approvalStatus: approvalFilter } : {}) }); setRecords(response.data); setPagination(response.pagination || { page: 1, totalPages: 0, totalVolunteers: 0 }); } catch (requestError) { toast.error(getApiErrorMessage(requestError)); } }} className="rounded-full bg-ink-950 px-3 py-2 text-xs font-bold text-white transition hover:bg-leaf-600">
-                  Approve
-                </button>
-              ) : "Approved",
+            render: (row) => (
+              <div className="flex flex-wrap gap-2">
+                {canApprove && row.approvalStatus !== "Approved" && (
+                  <button type="button" onClick={async () => { try { await volunteerService.approve(row.id, { approvalStatus: "Approved" }); toast.success("Volunteer approved."); const response = await volunteerService.list({ page, limit: 10, ...(approvalFilter ? { approvalStatus: approvalFilter } : {}) }); setRecords(response.data); setPagination(response.pagination || { page: 1, totalPages: 0, totalVolunteers: 0 }); } catch (requestError) { toast.error(getApiErrorMessage(requestError)); } }} className="rounded-full bg-ink-950 px-3 py-2 text-xs font-bold text-white transition hover:bg-leaf-600">
+                    Approve
+                  </button>
+                )}
+                {canApprove && row.approvalStatus === "Approved" && row.availabilityStatus === "Completed" && (
+                  <button type="button" onClick={async () => { try { await volunteerService.updateAvailability(row.id, { availabilityStatus: "Available" }); toast.success("Volunteer marked as available."); const response = await volunteerService.list({ page, limit: 10, ...(approvalFilter ? { approvalStatus: approvalFilter } : {}) }); setRecords(response.data); setPagination(response.pagination || { page: 1, totalPages: 0, totalVolunteers: 0 }); } catch (requestError) { toast.error(getApiErrorMessage(requestError)); } }} className="rounded-full bg-leaf-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-leaf-500">
+                    Mark Available
+                  </button>
+                )}
+                {row.approvalStatus === "Approved" && row.availabilityStatus !== "Completed" && <span className="text-xs font-bold text-leaf-700">Ready</span>}
+              </div>
+            )
           },
         ]}
         rows={records}

@@ -52,10 +52,64 @@ const updateProfile = asyncHandler(async (req, res) => {
   });
 });
 
+const getUsers = asyncHandler(async (req, res) => {
+  const { users, pagination } = await authService.getUsers(req.user, req.query);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "Users fetched successfully",
+    data: { users, pagination },
+  });
+});
+
+const deleteUser = asyncHandler(async (req, res) => {
+  await authService.deleteUser(req.params.id, req.user);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "User account archived successfully",
+  });
+});
+
+const resetUserPassword = asyncHandler(async (req, res) => {
+  const user = await authService.resetUserPassword(req.params.id, req.body.password, req.user);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "User password reset successfully",
+    data: { user },
+  });
+});
+
+const updateUserStatus = asyncHandler(async (req, res) => {
+  const user = await authService.updateUserStatus(req.params.id, req.body.status, req.user);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "User status updated successfully",
+    data: { user },
+  });
+});
+
+const transferUser = asyncHandler(async (req, res) => {
+  const user = await authService.transferUser(req.params.id, req.body, req.user);
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "User department/jurisdiction transferred successfully",
+    data: { user },
+  });
+});
+
 module.exports = {
   register,
   createUser,
+  getUsers,
+  deleteUser,
   login,
   getProfile,
   updateProfile,
+  resetUserPassword,
+  updateUserStatus,
+  transferUser,
 };

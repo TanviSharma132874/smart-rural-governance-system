@@ -39,6 +39,18 @@ const certificateHistorySchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    version: {
+      type: Number,
+      default: 1,
+    },
+    documentsSnapshot: {
+      type: [String],
+      default: [],
+    },
+    detailsSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   {
     _id: false,
@@ -55,7 +67,7 @@ const certificateSchema = new mongoose.Schema(
     },
     certificateType: {
       type: String,
-      enum: CERTIFICATE_TYPES,
+      enum: [...CERTIFICATE_TYPES, "Land Ownership Certificate"],
       required: [true, "Certificate type is required"],
       index: true,
     },
@@ -89,6 +101,12 @@ const certificateSchema = new mongoose.Schema(
       default: "",
       index: true,
     },
+    panchayat: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
     village: {
       type: String,
       trim: true,
@@ -101,6 +119,12 @@ const certificateSchema = new mongoose.Schema(
       default: "",
       index: true,
     },
+    ward: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
     status: {
       type: String,
       enum: CERTIFICATE_STATUSES,
@@ -108,12 +132,38 @@ const certificateSchema = new mongoose.Schema(
       index: true,
     },
     uploadedDocuments: {
-      type: [String],
+      type: [
+        {
+          name: String,
+          path: String,
+          category: String,
+          verified: { type: Boolean, default: false },
+        }
+      ],
       default: [],
     },
     certificateDetails: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
+    },
+    currentVersion: {
+      type: Number,
+      default: 1,
+    },
+    correctionRequest: {
+      reasonForChange: String,
+      requestedChanges: String,
+      previousCertificateNumber: String,
+    },
+    expiryDate: {
+      type: Date,
+      default: null,
+    },
+    certificateNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
     },
     remarks: {
       type: String,
@@ -141,10 +191,6 @@ const certificateSchema = new mongoose.Schema(
       default: "",
     },
     digitalSignature: {
-      type: String,
-      default: "",
-    },
-    departmentSeal: {
       type: String,
       default: "",
     },

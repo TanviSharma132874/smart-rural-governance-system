@@ -25,6 +25,8 @@ const initialFilters = {
 function ComplaintPage() {
   const user = useAppSelector((state) => state.auth.user);
   const canManage = ["panchayatOfficer", "departmentOfficer", "districtAdmin", "stateAdmin", "superAdmin"].includes(user?.role);
+  
+  const [activeQueue, setActiveQueue] = useState("all");
   const [filters, setFilters] = useState(initialFilters);
   const [page, setPage] = useState(1);
   const [complaints, setComplaints] = useState([]);
@@ -40,15 +42,16 @@ function ComplaintPage() {
       page,
       limit: 10,
       sort: filters.sort,
-      status: filters.status,
+      status: activeQueue === "review" ? "Pending" : activeQueue === "resolution" ? "Reviewed" : activeQueue === "closed" ? "Closed" : filters.status,
+      assignedOfficer: activeQueue === "my" ? user?.id : undefined,
       priority: filters.priority,
       category: filters.category,
       subcategory: filters.subcategory,
       responsibleDepartment: filters.responsibleDepartment,
-      escalationStatus: filters.escalationStatus,
+      escalationStatus: activeQueue === "escalated" ? "Escalated" : filters.escalationStatus,
       search: deferredSearch,
     }),
-    [deferredSearch, filters.category, filters.escalationStatus, filters.priority, filters.responsibleDepartment, filters.sort, filters.status, filters.subcategory, page]
+    [deferredSearch, filters.category, filters.escalationStatus, filters.priority, filters.responsibleDepartment, filters.sort, filters.status, filters.subcategory, page, activeQueue, user?.id]
   );
 
   const loadSelectedComplaint = useCallback(async (complaintId) => {
@@ -165,6 +168,51 @@ function ComplaintPage() {
         </p>
       </div>
 
+      {canManage && (
+        <div className="flex flex-wrap gap-2 overflow-x-auto rounded-[28px] bg-slate-100 p-1 shadow-inner text-nowrap">
+          <button
+            onClick={() => { setActiveQueue("all"); setPage(1); }}
+            className={`rounded-full px-5 py-2 text-[11px] font-bold uppercase tracking-wider transition ${activeQueue === "all" ? "bg-ink-950 text-white shadow-md" : "text-slate-600 hover:bg-slate-200"}`}
+          >
+            All Cases
+          </button>
+          <button
+            onClick={() => { setActiveQueue("my"); setPage(1); }}
+            className={`rounded-full px-5 py-2 text-[11px] font-bold uppercase tracking-wider transition ${activeQueue === "my" ? "bg-amber-500 text-white shadow-md" : "text-slate-600 hover:bg-slate-200"}`}
+          >
+            My Queue
+          </button>
+          {["panchayatOfficer", "districtAdmin", "stateAdmin", "superAdmin"].includes(user.role) && (
+            <button
+              onClick={() => { setActiveQueue("review"); setPage(1); }}
+              className={`rounded-full px-5 py-2 text-[11px] font-bold uppercase tracking-wider transition ${activeQueue === "review" ? "bg-leaf-600 text-white shadow-md" : "text-slate-600 hover:bg-slate-200"}`}
+            >
+              Review Queue
+            </button>
+          )}
+          {["departmentOfficer", "districtAdmin", "stateAdmin", "superAdmin"].includes(user.role) && (
+            <button
+              onClick={() => { setActiveQueue("resolution"); setPage(1); }}
+              className={`rounded-full px-5 py-2 text-[11px] font-bold uppercase tracking-wider transition ${activeQueue === "resolution" ? "bg-leaf-600 text-white shadow-md" : "text-slate-600 hover:bg-slate-200"}`}
+            >
+              Resolution Queue
+            </button>
+          )}
+          <button
+            onClick={() => { setActiveQueue("escalated"); setPage(1); }}
+            className={`rounded-full px-5 py-2 text-[11px] font-bold uppercase tracking-wider transition ${activeQueue === "escalated" ? "bg-rose-600 text-white shadow-md" : "text-slate-600 hover:bg-slate-200"}`}
+          >
+            Escalated
+          </button>
+          <button
+            onClick={() => { setActiveQueue("closed"); setPage(1); }}
+            className={`rounded-full px-5 py-2 text-[11px] font-bold uppercase tracking-wider transition ${activeQueue === "closed" ? "bg-slate-500 text-white shadow-md" : "text-slate-600 hover:bg-slate-200"}`}
+          >
+            Archive (Closed)
+          </button>
+        </div>
+      )}
+
       {pageError ? (
         <div className="rounded-[28px] border border-alert-100 bg-alert-100 px-5 py-4 text-sm font-medium text-alert-500">
           {pageError}
@@ -188,6 +236,7 @@ function ComplaintPage() {
         onReset={() => {
           setFilters(initialFilters);
           setPage(1);
+          setActiveQueue("all");
         }}
         pagination={pagination}
         isLoading={loading}

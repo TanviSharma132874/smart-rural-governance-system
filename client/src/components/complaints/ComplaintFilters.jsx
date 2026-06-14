@@ -1,6 +1,6 @@
 import FilterBar from "../common/FilterBar";
 import FormField from "../common/FormField";
-import { COMPLAINT_CATEGORIES, COMPLAINT_SUBCATEGORY_MAP, GOVERNMENT_DEPARTMENTS } from "../../utils/constants";
+import { COMPLAINT_CATEGORIES, COMPLAINT_STATUSES, COMPLAINT_SUBCATEGORY_MAP, GOVERNMENT_DEPARTMENTS } from "../../utils/constants";
 
 function ComplaintFilters({ filters, onChange, onReset, pagination, isLoading }) {
   const subcategoryOptions = filters.category ? COMPLAINT_SUBCATEGORY_MAP[filters.category] || [] : [];
@@ -29,10 +29,7 @@ function ComplaintFilters({ filters, onChange, onReset, pagination, isLoading })
           onChange={onChange}
           options={[
             { value: "", label: "All statuses" },
-            { value: "Pending", label: "Pending" },
-            { value: "In Progress", label: "In Progress" },
-            { value: "Resolved", label: "Resolved" },
-            { value: "Rejected", label: "Rejected" },
+            ...COMPLAINT_STATUSES.map(s => ({ value: s, label: s }))
           ]}
         />
         <FormField

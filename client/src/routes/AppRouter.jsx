@@ -18,6 +18,7 @@ const RegisterPage = lazy(() => import("../pages/RegisterPage"));
 const ResourcesPage = lazy(() => import("../pages/ResourcesPage"));
 const VolunteersPage = lazy(() => import("../pages/VolunteersPage"));
 const ProfilePage = lazy(() => import("../pages/ProfilePage"));
+const UserManagementPage = lazy(() => import("../pages/UserManagementPage"));
 
 function AppRouter() {
   return (
@@ -40,6 +41,7 @@ function AppRouter() {
             </PublicOnlyRoute>
           }
         />
+        <Route path="/verify" element={<CertificateVerificationPage />} />
         <Route path="/verify/certificate/:id" element={<CertificateVerificationPage />} />
         <Route
           element={
@@ -57,6 +59,7 @@ function AppRouter() {
           <Route path="/volunteers" element={<VolunteersPage />} />
           <Route path="/announcements" element={<AnnouncementsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/admin/users" element={<UserManagementPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
         </Routes>

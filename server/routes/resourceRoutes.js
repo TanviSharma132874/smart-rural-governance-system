@@ -5,7 +5,7 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const authorize = require("../middlewares/roleMiddleware");
 const { enforceJurisdictionPayload } = require("../middlewares/jurisdictionMiddleware");
 const validateRequest = require("../middlewares/validationMiddleware");
-const { createResourceValidator, resourceIdValidator, resourceListValidator, updateResourceValidator, returnResourceValidator } = require("../validators/resourceValidators");
+const { createResourceValidator, resourceIdValidator, resourceListValidator, updateResourceValidator, returnResourceValidator, addMaintenanceValidator } = require("../validators/resourceValidators");
 
 const router = express.Router();
 
@@ -39,6 +39,13 @@ router.patch(
   returnResourceValidator,
   validateRequest,
   resourceController.returnResource
+);
+router.post(
+  "/:id/maintenance",
+  authorize("departmentOfficer", "panchayatOfficer", "districtAdmin", "stateAdmin", "superAdmin"),
+  addMaintenanceValidator,
+  validateRequest,
+  resourceController.addMaintenanceRecord
 );
 router.delete(
   "/:id",
