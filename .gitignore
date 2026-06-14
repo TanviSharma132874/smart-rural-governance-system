@@ -55,13 +55,16 @@ Desktop.ini
 *.local
 
 # =========================
-# Documentation (Ignore all docs)
+# Documentation
 # =========================
 docs/
-*.md
+README.md
 
-# Keep README.md if you want project description on GitHub
-!README.md
+# =========================
+# Package Files
+# =========================
+package.json
+package-lock.json
 
 # =========================
 # Temporary Files
