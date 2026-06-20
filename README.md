@@ -1,147 +1,308 @@
 # Smart Rural Governance & Emergency Management System
 
-Workflow-driven governance and emergency operations platform for complaint handling, certificate processing, and administrative coordination.
+A workflow-driven digital governance platform designed to streamline public service delivery, emergency response coordination, certificate processing, complaint resolution, volunteer management, and administrative operations across multiple levels of governance.
 
-## Problem Statement
+## Live Deployment
 
-Many public-service processes still depend on fragmented manual workflows, delayed approvals, limited visibility, and poor coordination between citizens and officials.
+Frontend:
+https://smart-rural-governance-system.vercel.app
 
-This project simulates a structured digital governance system that focuses on workflow engineering, accountability, and role-based operations rather than simple CRUD screens.
+Backend API:
+https://smart-rural-governance-api.onrender.com
 
-## Project Details
+## Overview
 
-The application is organized around these user roles:
+The Smart Rural Governance & Emergency Management System was built to simulate how real governance workflows operate across Citizens, Panchayat Officers, District Administrators, State Administrators, and Emergency Response Teams.
 
-- Citizen: files complaints, applies for certificates, and tracks progress.
-- Panchayat Officer: reviews incoming cases and verifies submissions.
-- District Admin: escalates cases, assigns work, and closes service loops.
-- Volunteer / Field Team: receives assignments and updates live progress.
+Instead of focusing on isolated CRUD operations, the platform emphasizes workflow orchestration, accountability, role-based operations, real-time coordination, auditability, and operational visibility.
 
-The main functional areas are:
+The system combines governance services and emergency management capabilities into a unified platform.
 
-- Complaint intake with attachments and location context.
-- Certificate processing with document upload, verification, approval, and PDF download.
-- Administrative review queues for officers and admins.
-- Live tracking for status updates and task progress.
+---
 
-## Screenshots
+# Core Modules
 
-The shared workflow screenshot is the primary visual reference for this project.
+## Complaint Management
 
-## Features
+Citizens can report civic issues and track progress throughout the complete resolution lifecycle.
 
-### Complaint Management
+Features:
 
-- Complaint creation and tracking
-- Officer assignment workflows
-- Status lifecycle management
-- Location-aware case handling
-- Search and filtering on the complaint queue
+* Complaint registration with attachments
+* Department routing
+* Officer assignment workflows
+* Escalation management
+* SLA monitoring
+* Resolution tracking
+* Citizen closure confirmation
+* Search, filtering, and queue management
+* Audit trail and timeline history
 
-### Certificate Governance System
+Lifecycle:
 
-- Certificate application workflows
-- Department-based authorization
-- Officer verification queues
-- Signed PDF generation
-- QR-based certificate verification
-- Audit history tracking
+Submitted → Assigned → In Progress → Resolved → Closed
 
-### Authentication and Security
+---
 
-- JWT authentication
-- Role-based access control
-- Protected APIs
-- Validation middleware
-- Request guarding for sensitive actions
+## Digital Certificate Management
 
-### System Architecture
+Provides a structured workflow for certificate applications and issuance.
 
-- Service-layer architecture
-- Centralized error handling
-- Structured logging
-- Reusable validation schemas
-- Document generation for approvals
+Features:
 
-## Tech Stack
+* Certificate applications
+* Document uploads
+* Department review queues
+* Correction request workflows
+* Resubmission management
+* Digital approval process
+* PDF generation
+* QR verification
+* Application version history
+* Certificate verification endpoint
 
-### Frontend
+Lifecycle:
 
-- React
-- Redux Toolkit
-- Axios
-- React Hook Form
-- Tailwind CSS
+Submitted → Under Review → Correction Required → Resubmitted → Approved → Issued
 
-### Backend
+---
 
-- Node.js
-- Express.js
-- MongoDB Atlas
-- JWT authentication
-- Multer
+## Emergency Response Management
 
-### Architecture and Tooling
+Supports emergency incident reporting and response coordination.
 
-- REST APIs
-- RBAC
-- Zod validation
-- Audit logging
-- PDF and QR generation
+Features:
 
-## Governance Workflow
+* SOS emergency submission
+* Severity classification
+* Geographic location mapping
+* Resource allocation
+* Incident tracking
+* Volunteer assignment
+* Emergency lifecycle management
+* Real-time dispatch coordination
 
-Citizen access -> authentication -> dashboard access -> complaint or certificate submission -> officer review -> approval or assignment -> PDF or status update -> citizen tracking.
+Lifecycle:
 
-## Emergency Workflow
+Submitted → Acknowledged → Assigned → In Progress → Resolved → Closed
 
-Citizen access -> SOS trigger -> real-time alert broadcast -> admin coordination -> resource allocation -> volunteer assignment -> live progress update -> emergency resolved.
+---
 
-## Project Structure
+## Resource Management
 
-- client/
-  - src/
-    - pages/
-    - components/
-    - redux/
-    - services/
-    - layouts/
-- server/
-  - controllers/
-  - services/
-  - models/
-  - routes/
-  - middlewares/
-  - validators/
-  - utils/
+Provides inventory and operational resource tracking.
 
-## Sample API Routes
+Features:
 
-### Complaint APIs
+* Resource catalog
+* Stock management
+* Allocation tracking
+* Maintenance logging
+* Inventory audit history
+* Emergency resource assignment
+* Availability monitoring
 
-- `POST /api/complaints`
-- `GET /api/complaints`
-- `PATCH /api/complaints/:id/status`
-- `PATCH /api/complaints/:id/assign`
+Examples:
 
-### Certificate APIs
+* Ambulances
+* Medical Kits
+* Food Supplies
+* Water Resources
+* Shelter Capacity
+* Rescue Equipment
 
-- `POST /api/certificates/apply`
-- `GET /api/certificates/:id`
-- `GET /api/certificates/verify/:id`
-- `PATCH /api/certificates/:id/review`
-- `PATCH /api/certificates/:id/status`
-- `GET /api/certificates/download/:id`
+---
 
-## Installation
+## Volunteer Management
 
-### Clone Repository
+Manages citizen volunteers available for emergency response.
 
-```bash
-git clone <repo-url>
-```
+Features:
 
-### Backend Setup
+* Volunteer registration
+* Skills tracking
+* Availability management
+* Approval workflows
+* Emergency assignment support
+* Administrative verification
+
+Lifecycle:
+
+Pending Verification → Approved → Active Response Pool
+
+---
+
+## Real-Time Notification System
+
+Provides operational awareness across governance workflows.
+
+Features:
+
+* Socket.IO integration
+* Real-time updates
+* Persistent notifications
+* Deep-link navigation
+* Role-based targeting
+* Department notifications
+* Emergency alerts
+* Read/unread tracking
+
+Examples:
+
+* Complaint assignments
+* Certificate updates
+* Emergency alerts
+* Volunteer approvals
+* Escalation events
+
+---
+
+## Dashboard & Analytics
+
+Role-specific dashboards provide operational visibility.
+
+Features:
+
+* Citizen Dashboard
+* Panchayat Officer Dashboard
+* District Admin Dashboard
+* State Admin Dashboard
+* Analytics widgets
+* Queue monitoring
+* Performance metrics
+* Emergency overview statistics
+
+---
+
+# User Roles
+
+## Citizen
+
+* Register and authenticate
+* File complaints
+* Apply for certificates
+* Submit SOS requests
+* Register as volunteers
+* Track workflow status
+* Receive notifications
+
+## Panchayat Officer
+
+* Review complaints
+* Manage certificate workflows
+* Process incoming requests
+* Update statuses
+* Add review remarks
+
+## District Administrator
+
+* Manage escalations
+* Coordinate resources
+* Approve volunteers
+* Monitor emergencies
+* Supervise operations
+
+## State Administrator
+
+* Monitor statewide analytics
+* Review governance metrics
+* Coordinate district oversight
+* Publish announcements
+
+## Volunteer
+
+* Maintain profile
+* Update availability
+* Participate in emergency response
+
+---
+
+# Security & Governance Controls
+
+* JWT Authentication
+* Role-Based Access Control (RBAC)
+* Protected API Endpoints
+* Request Validation
+* Audit Logging
+* Activity Tracking
+* Secure File Upload Handling
+* Route Protection
+* Ownership Verification
+
+---
+
+# Technical Highlights
+
+* Workflow-Driven Architecture
+* Service Layer Pattern
+* Real-Time Communication
+* Deep-Link Navigation
+* Socket Session Management
+* PDF Generation
+* QR Verification
+* Notification Persistence
+* URL State Synchronization
+* Centralized Error Handling
+
+---
+
+# Tech Stack
+
+## Frontend
+
+* React
+* Redux Toolkit
+* React Router
+* React Hook Form
+* Tailwind CSS
+* Axios
+* Socket.IO Client
+
+## Backend
+
+* Node.js
+* Express.js
+* MongoDB Atlas
+* Mongoose
+* Socket.IO
+* JWT Authentication
+* Multer
+
+## Infrastructure
+
+* Vercel
+* Render
+* MongoDB Atlas
+
+---
+
+# Project Structure
+
+client/
+├── src/
+│ ├── pages/
+│ ├── components/
+│ ├── services/
+│ ├── redux/
+│ ├── layouts/
+│ └── utils/
+
+server/
+├── controllers/
+├── services/
+├── models/
+├── routes/
+├── validators/
+├── middlewares/
+├── sockets/
+├── scripts/
+└── utils/
+
+---
+
+# Installation
+
+Backend
 
 ```bash
 cd server
@@ -149,7 +310,7 @@ npm install
 npm run dev
 ```
 
-### Frontend Setup
+Frontend
 
 ```bash
 cd client
@@ -157,9 +318,7 @@ npm install
 npm run dev
 ```
 
-## Environment Variables
-
-Create a `.env` file inside `server/`:
+Environment Variables
 
 ```env
 PORT=
@@ -168,27 +327,27 @@ JWT_SECRET=
 CLIENT_URL=
 ```
 
-## Notes
+---
 
-- Add the required environment variables in `server/` before starting the backend.
-- Run frontend and backend in separate terminals during development.
+# Future Roadmap
 
-## Future Enhancements
+* GIS-based jurisdiction mapping
+* Mobile application
+* Multi-language support
+* AI-assisted complaint categorization
+* Predictive emergency analytics
+* Resource demand forecasting
 
-- Emergency SOS workflows
-- Resource allocation engine
-- Real-time notifications
-- GIS-based jurisdiction mapping
-- Multi-language support
+---
 
-## Engineering Focus
-
-This project was built to explore workflow-driven backend architecture, access control, auditability, and real-world administrative processes.
-
-## Author
+# Author
 
 Tanvi Sharma
 
-## License
+B.Tech Computer Science & Engineering
 
-This project is licensed under the MIT License.
+---
+
+# License
+
+MIT License
