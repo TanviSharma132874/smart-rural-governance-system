@@ -51,6 +51,16 @@ function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
     const payload = new FormData();
     payload.append("certificateType", activeTemplate.code);
     payload.append("remarks", form.remarks || "");
+    
+    // Append auto-populated geographical profile data
+    payload.append("state", currentUser.state || "");
+    payload.append("district", currentUser.district || "");
+    payload.append("jurisdictionType", currentUser.jurisdictionType || "");
+    if (currentUser.tehsil) payload.append("tehsil", currentUser.tehsil);
+    if (currentUser.panchayat) payload.append("panchayat", currentUser.panchayat);
+    if (currentUser.village) payload.append("village", currentUser.village);
+    if (currentUser.municipality) payload.append("municipality", currentUser.municipality);
+    if (currentUser.ward) payload.append("ward", currentUser.ward);
 
     const details = {};
     activeTemplate.fields.forEach(field => {
