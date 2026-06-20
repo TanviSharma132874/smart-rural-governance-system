@@ -9,12 +9,24 @@ const {
 
 const mongoIdMessage = "Must be a valid MongoDB ObjectId";
 
+const ALLOWED_CERTIFICATE_INPUTS = [
+  ...CERTIFICATE_TYPES,
+  "BIRTH_CERT",
+  "INCOME_CERT",
+  "CASTE_CERT",
+  "RESIDENCE_CERT",
+  "DEATH_CERT",
+  "MARRIAGE_CERT",
+  "DOMICILE_CERT",
+  "TEST_CERT"
+];
+
 const applyCertificateValidator = [
   body("certificateType")
     .notEmpty()
     .withMessage("Certificate type is required")
-    .isIn(CERTIFICATE_TYPES)
-    .withMessage(`Certificate type must be one of: ${CERTIFICATE_TYPES.join(", ")}`),
+    .isIn(ALLOWED_CERTIFICATE_INPUTS)
+    .withMessage(`Certificate type must be a valid template code or name`),
   body("department")
     .optional()
     .isIn(GOVERNMENT_DEPARTMENTS)

@@ -135,7 +135,10 @@ const nextCertificateNumber = async (type) => {
 };
 
 const applyCertificate = async (payload, user, files = []) => {
-  const template = await CertificateTemplate.findOne({ code: payload.certificateType, isActive: true });
+  let template = await CertificateTemplate.findOne({ code: payload.certificateType, isActive: true });
+  if (!template) {
+    template = await CertificateTemplate.findOne({ name: payload.certificateType, isActive: true });
+  }
   if (!template) {
     throw new AppError("Invalid or inactive certificate type selected", 400);
   }
