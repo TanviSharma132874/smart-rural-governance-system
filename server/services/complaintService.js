@@ -14,12 +14,13 @@ const {
   COMPLAINT_STATUSES,
   COMPLAINT_PRIORITIES,
 } = require("../config/constants");
+const notificationService = require("./notificationService");
 
 const STATUS_TRANSITIONS = {
   Pending: ["Reviewed", "Rejected"],
   Reviewed: ["In Progress", "Rejected"],
   "In Progress": ["Resolved", "Rejected"],
-  Resolved: ["Closed"],
+  Resolved: ["Closed", "In Progress"],
   Closed: [],
   Rejected: [],
 };
@@ -169,6 +170,23 @@ const persistEscalation = async (complaintId) => {
       complaintId: escalatedComplaint._id.toString(),
       escalatedAt: escalatedComplaint.escalatedAt?.toISOString(),
     });
+
+    try {
+      await notificationService.createRoomNotification({
+        targetRoom: `district:${escalatedComplaint.district}`,
+        type: "Complaint",
+        action: "Escalated",
+        title: "Complaint Escalated",
+        message: `Complaint "${escalatedComplaint.title}" has been escalated to district oversight.`,
+        metadata: {
+          entityId: escalatedComplaint._id,
+          entityType: "Complaint",
+        },
+        priority: "High",
+      });
+    } catch (error) {
+      logger.error(`Notification failed during complaint escalation: ${error.message}`);
+    }
   }
 };
 
@@ -257,7 +275,8 @@ const ensureDepartmentAccess = (user, complaint) => {
     return;
   }
 
-  if (["departmentOfficer", "panchayatOfficer"].includes(user.role) && user.department && complaint.responsibleDepartment && user.department !== complaint.responsibleDepartment) {
+  // Panchayat Officers act as generalists and should NOT be restricted by department
+  if (user.role === "departmentOfficer" && user.department && complaint.responsibleDepartment && user.department !== complaint.responsibleDepartment) {
     throw new AppError("You are not authorized for complaints outside your department queue", 403);
   }
 };
@@ -271,13 +290,21 @@ const buildComplaintQuery = (user, filters = {}) => {
     query.citizenId = user.id;
   } else {
     Object.assign(query, buildJurisdictionQuery(user));
-    if (["departmentOfficer", "panchayatOfficer"].includes(user.role) && user.department) {
+    
+    // Role-based department enforcement
+    if (user.role === "departmentOfficer" && user.department) {
       query.responsibleDepartment = user.department;
+    } else if (filters.responsibleDepartment) {
+      query.responsibleDepartment = filters.responsibleDepartment;
     }
   }
 
   if (filters.status) {
     query.status = filters.status;
+  }
+
+  if (filters.assignedOfficer) {
+    query.assignedOfficer = filters.assignedOfficer;
   }
 
   if (filters.category) {
@@ -725,6 +752,24 @@ const createComplaint = async (payload, user, files = []) => {
     status: complaint.status,
   });
 
+  try {
+    await notificationService.createRoomNotification({
+      targetRoom: `department:${complaint.responsibleDepartment}`,
+      sender: user.id,
+      type: "Complaint",
+      action: "Created",
+      title: "New Complaint Submitted",
+      message: `A new complaint "${complaint.title}" has been submitted to your department.`,
+      metadata: {
+        entityId: complaint._id,
+        entityType: "Complaint",
+      },
+      priority: complaint.priority || "Medium",
+    });
+  } catch (error) {
+    logger.error(`Notification failed during complaint creation: ${error.message}`);
+  }
+
   const formatted = formatComplaint(complaint);
   emitRealtimeEvent(
     [
@@ -914,6 +959,49 @@ const updateComplaintStatus = async (complaintId, payload, user, files = []) => 
 
   await complaint.save();
   await complaint.populate(detailPopulateOptions);
+
+  // Send notification if complaint was resolved
+  if (payload.status === "Resolved" && previousStatus !== "Resolved") {
+    try {
+      await notificationService.createPrivateNotification({
+        recipient: complaint.citizenId?._id || complaint.citizenId,
+        type: "Complaint",
+        action: "Resolved",
+        title: "Complaint Resolved",
+        message: `Your complaint '${complaint.title}' has been marked as Resolved. Please review the resolution and confirm closure if satisfied.`,
+        metadata: {
+          entityId: complaint._id,
+          entityType: "Complaint",
+        },
+        priority: "High",
+      });
+    } catch (error) {
+      logger.error(`Notification failed for Complaint Resolved: ${error.message}`);
+      // Non-blocking failure
+    }
+  }
+
+  // Send notification if complaint was rejected
+  if (payload.status === "Rejected" && previousStatus !== "Rejected") {
+    try {
+      await notificationService.createPrivateNotification({
+        recipient: complaint.citizenId?._id || complaint.citizenId,
+        type: "Complaint",
+        action: "Rejected",
+        title: "Complaint Rejected",
+        message: `Your complaint '${complaint.title}' has been rejected. Remarks: ${complaint.officerRemarks || "No specific remarks provided."}`,
+        metadata: {
+          entityId: complaint._id,
+          entityType: "Complaint",
+        },
+        priority: "Medium",
+      });
+    } catch (error) {
+      logger.error(`Notification failed for Complaint Rejected: ${error.message}`);
+      // Non-blocking failure
+    }
+  }
+
   logger.info("Complaint status updated", {
     complaintId: complaint._id.toString(),
     previousStatus,
@@ -954,6 +1042,8 @@ const assignComplaint = async (complaintId, assignedOfficerId, user) => {
   ensureDepartmentAccess(user, complaint);
 
   const officer = await validateAssignedOfficer(assignedOfficerId, complaint);
+
+  const previousAssignedOfficer = complaint.assignedOfficer;
 
   if (complaint.status === "Closed") {
     throw new AppError("This complaint is closed and cannot be reassigned.", 400);
@@ -998,6 +1088,44 @@ const assignComplaint = async (complaintId, assignedOfficerId, user) => {
 
   await complaint.save();
   await complaint.populate(detailPopulateOptions);
+
+  // Send persistent notifications to citizen and assigned officer
+  try {
+    // 1. Notify Citizen
+    await notificationService.createPrivateNotification({
+      recipient: complaint.citizenId?._id || complaint.citizenId,
+      type: "Complaint",
+      action: "Assigned",
+      title: "Officer Assigned to Complaint",
+      message: `An officer has been assigned to your complaint "${complaint.title}".`,
+      metadata: {
+        entityId: complaint._id,
+        entityType: "Complaint",
+      },
+      priority: "Medium",
+    });
+
+    // 2. Notify Assigned Officer (only if it's a new assignment)
+    const isNewAssignment = !previousAssignedOfficer || String(previousAssignedOfficer) !== String(assignedOfficerId);
+    if (isNewAssignment) {
+      await notificationService.createPrivateNotification({
+        recipient: assignedOfficerId,
+        type: "Complaint",
+        action: "Assigned",
+        title: "New Complaint Assignment",
+        message: `You have been assigned to follow up on complaint "${complaint.title}".`,
+        metadata: {
+          entityId: complaint._id,
+          entityType: "Complaint",
+        },
+        priority: "High",
+      });
+    }
+  } catch (error) {
+    logger.error(`Notification failed during complaint assignment: ${error.message}`);
+    // Non-blocking failure; workflow continues
+  }
+
   logger.info("Complaint assigned", {
     complaintId: complaint._id.toString(),
     assignedOfficerId: assignedOfficerId.toString(),

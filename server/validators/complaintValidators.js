@@ -62,51 +62,51 @@ const complaintIdValidator = [param("id").isMongoId().withMessage(mongoIdMessage
 
 const getComplaintsValidator = [
   query("page")
-    .optional()
+    .optional({ values: "falsy" })
     .isInt({ min: 1 })
     .withMessage("Page must be a positive integer")
     .toInt(),
   query("limit")
-    .optional()
+    .optional({ values: "falsy" })
     .isInt({ min: 1, max: 100 })
     .withMessage("Limit must be an integer between 1 and 100")
     .toInt(),
   query("status")
-    .optional()
+    .optional({ values: "falsy" })
     .isIn(COMPLAINT_STATUSES)
     .withMessage(`Status must be one of: ${COMPLAINT_STATUSES.join(", ")}`),
   query("priority")
-    .optional()
+    .optional({ values: "falsy" })
     .isIn(COMPLAINT_PRIORITIES)
     .withMessage(`Priority must be one of: ${COMPLAINT_PRIORITIES.join(", ")}`),
   query("category")
-    .optional()
+    .optional({ values: "falsy" })
     .isIn(COMPLAINT_CATEGORIES)
     .withMessage(`Category must be one of: ${COMPLAINT_CATEGORIES.join(", ")}`),
   query("subcategory")
-    .optional()
+    .optional({ values: "falsy" })
     .trim()
     .isLength({ max: 100 })
     .withMessage("Subcategory cannot exceed 100 characters"),
   query("responsibleDepartment")
-    .optional()
+    .optional({ values: "falsy" })
     .isIn(GOVERNMENT_DEPARTMENTS)
     .withMessage(`Department must be one of: ${GOVERNMENT_DEPARTMENTS.join(", ")}`),
   query("escalationStatus")
-    .optional()
+    .optional({ values: "falsy" })
     .isIn(["Normal", "Escalated"])
     .withMessage("Escalation status must be Normal or Escalated"),
   query("search")
-    .optional()
+    .optional({ values: "falsy" })
     .trim()
     .isLength({ min: 1, max: 100 })
     .withMessage("Search must be between 1 and 100 characters"),
   query("sort")
-    .optional()
+    .optional({ values: "falsy" })
     .isIn(COMPLAINT_SORT_OPTIONS)
     .withMessage(`Sort must be one of: ${COMPLAINT_SORT_OPTIONS.join(", ")}`),
   query("jurisdictionType")
-    .optional()
+    .optional({ values: "falsy" })
     .isIn(JURISDICTION_TYPES)
     .withMessage(`Jurisdiction type must be one of: ${JURISDICTION_TYPES.join(", ")}`),
 ];

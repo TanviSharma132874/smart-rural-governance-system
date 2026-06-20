@@ -3,6 +3,7 @@ const Emergency = require("../models/Emergency");
 const Resource = require("../models/Resource");
 const User = require("../models/User");
 const Volunteer = require("../models/Volunteer");
+const notificationService = require("./notificationService");
 const AppError = require("../utils/AppError");
 const logger = require("../utils/logger");
 const { emitRealtimeEvent } = require("../sockets");
@@ -40,7 +41,7 @@ const detailPopulateOptions = [
   { path: "statusHistory.updatedBy", select: "name email role department" },
   { path: "resourceAssignments.resource", select: "resourceType availableQuantity department district" },
   { path: "resourceAssignments.allocatedBy", select: "name email role department" },
-  { path: "volunteerAssignments.volunteer", select: "name phone skills availabilityStatus approvalStatus district" },
+  { path: "volunteerAssignments.volunteer", select: "name phone skills availabilityStatus approvalStatus district user" },
   { path: "volunteerAssignments.assignedBy", select: "name email role department" },
 ];
 
@@ -152,6 +153,7 @@ const normalizeListOptions = (filters = {}) => {
     status: typeof filters.status === "string" ? filters.status.trim() : "",
     severity: typeof filters.severity === "string" ? filters.severity.trim() : "",
     emergencyType: typeof filters.emergencyType === "string" ? filters.emergencyType.trim() : "",
+    queue: typeof filters.queue === "string" ? filters.queue.trim() : "",
     sort: filters.sort === "oldest" ? "oldest" : filters.sort === "priority" ? "priority" : "latest",
   };
 };
@@ -293,6 +295,12 @@ const buildListQuery = (user, filters = {}) => {
     query.status = options.status;
   }
 
+  if (options.queue === "active") {
+    query.status = {
+      $nin: ["Resolved", "Closed"]
+    };
+  }
+
   if (options.severity) {
     query.severity = options.severity;
   }
@@ -367,6 +375,24 @@ const createEmergency = async (payload, user, files = []) => {
     district: emergency.district,
     department: emergency.assignedDepartment,
   });
+
+  try {
+    await notificationService.createRoomNotification({
+      targetRoom: `department:${emergency.assignedDepartment}`,
+      sender: user.id,
+      type: "Emergency",
+      action: "Created",
+      title: "New Emergency SOS Alert",
+      message: `A new critical SOS alert "${emergency.title}" (${emergency.incidentNumber}) has been raised.`,
+      metadata: {
+        entityId: emergency._id,
+        entityType: "Emergency",
+      },
+      priority: emergency.severity || "Medium",
+    });
+  } catch (error) {
+    logger.error(`Notification failed for Emergency Created: ${error.message}`);
+  }
 
   notifyEmergencyRooms(emergency, "emergency:created", { emergency: formatEmergency(emergency) });
 
@@ -508,6 +534,30 @@ const acknowledgeEmergency = async (emergencyId, payload, user) => {
   await emergency.save();
   await emergency.populate(detailPopulateOptions);
 
+  try {
+    if (emergency.citizen) {
+      await notificationService.createPrivateNotification({
+        recipient: emergency.citizen._id || emergency.citizen,
+        sender: user.id,
+        type: "Emergency",
+        action: "Acknowledged",
+        title: "Emergency Request Acknowledged",
+        message: `Your SOS request (${emergency.incidentNumber}) has been acknowledged by the response team.`,
+        metadata: {
+          entityId: emergency._id,
+          entityType: "Emergency",
+        },
+        priority: emergency.severity,
+      });
+    }
+  } catch (error) {
+    logger.error("Failed to send acknowledgement notification to citizen", {
+      error: error.message,
+      emergencyId: emergency._id,
+      citizenId: emergency.citizen?._id || emergency.citizen,
+    });
+  }
+
   notifyEmergencyRooms(emergency, "emergency:acknowledged", { emergency: formatEmergency(emergency) });
 
   return formatEmergency(emergency);
@@ -583,6 +633,35 @@ const updateEmergencyStatus = async (emergencyId, payload, user) => {
 
   await emergency.save();
   await emergency.populate(detailPopulateOptions);
+
+  try {
+    const notifyStatuses = ["In Progress", "Resolved"];
+    if (notifyStatuses.includes(payload.status) && emergency.citizen) {
+      const message = payload.status === "In Progress" 
+        ? `Response teams are actively working on your SOS request (${emergency.incidentNumber}).`
+        : `Your SOS request (${emergency.incidentNumber}) has been resolved.`;
+
+      await notificationService.createPrivateNotification({
+        recipient: emergency.citizen._id || emergency.citizen,
+        sender: user.id,
+        type: "Emergency",
+        action: payload.status,
+        title: "SOS Status Updated",
+        message,
+        metadata: {
+          entityId: emergency._id,
+          entityType: "Emergency",
+        },
+        priority: emergency.severity,
+      });
+    }
+  } catch (error) {
+    logger.error("Failed to send status update notification to citizen", {
+      error: error.message,
+      emergencyId: emergency._id,
+      status: payload.status,
+    });
+  }
 
   logger.info("Emergency status updated", {
     emergencyId: emergency._id.toString(),
@@ -661,6 +740,8 @@ const assignResources = async (emergencyId, payload, user) => {
     );
   }
 
+  const isFirstDispatch = !emergency.resourceAssignments || emergency.resourceAssignments.length === 0;
+
   emergency.resourceAssignments.push(...assignments);
 
   if (emergency.status === "Acknowledged") {
@@ -678,6 +759,29 @@ const assignResources = async (emergencyId, payload, user) => {
 
   await emergency.save();
   await emergency.populate(detailPopulateOptions);
+
+  try {
+    if (isFirstDispatch && emergency.citizen) {
+      await notificationService.createPrivateNotification({
+        recipient: emergency.citizen._id || emergency.citizen,
+        sender: user.id,
+        type: "Emergency",
+        action: "Resources Dispatched",
+        title: "Response Resources Dispatched",
+        message: "Emergency response resources have been dispatched for your SOS request.",
+        metadata: {
+          entityId: emergency._id,
+          entityType: "Emergency",
+        },
+        priority: emergency.severity,
+      });
+    }
+  } catch (error) {
+    logger.error("Failed to send resource dispatch notification to citizen", {
+      error: error.message,
+      emergencyId: emergency._id,
+    });
+  }
 
   notifyEmergencyRooms(emergency, "emergency:resources-assigned", { emergency: formatEmergency(emergency) });
 
@@ -730,6 +834,38 @@ const assignVolunteers = async (emergencyId, payload, user) => {
 
   await emergency.save();
   await emergency.populate(detailPopulateOptions);
+
+  // Send notifications to assigned volunteers
+  const eligibleAssignments = (emergency.volunteerAssignments || []).filter((a) => a.volunteer && a.volunteer.user);
+  const notificationPromises = eligibleAssignments.map((a) =>
+    notificationService.createPrivateNotification({
+      recipient: a.volunteer.user,
+      sender: user.id,
+      type: "Emergency",
+      action: "Assignment",
+      title: "New Emergency Assignment",
+      message: `You have been assigned to SOS: ${emergency.title} (${emergency.incidentNumber}). Please check your dashboard for details.`,
+      metadata: {
+        entityId: emergency._id,
+        entityType: "Emergency",
+      },
+      priority: emergency.severity,
+    })
+  );
+
+  if (notificationPromises.length > 0) {
+    Promise.allSettled(notificationPromises).then((results) => {
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          logger.error("Failed to send volunteer notification", {
+            error: result.reason,
+            volunteerId: eligibleAssignments[index].volunteer?._id,
+            emergencyId: emergency._id,
+          });
+        }
+      });
+    });
+  }
 
   notifyEmergencyRooms(emergency, "emergency:volunteers-assigned", { emergency: formatEmergency(emergency) });
 

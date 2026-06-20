@@ -34,9 +34,14 @@ function ComplaintList({ complaints, selectedId, onSelect, pagination, page, onP
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ink-800/70">
-                    {complaint.category}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-leaf-100 px-2 py-0.5 text-[10px] font-bold text-leaf-800">
+                      #{complaint.id.slice(-6).toUpperCase()}
+                    </span>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ink-800/70">
+                      {complaint.category}
+                    </p>
+                  </div>
                   <h3 className="mt-2 font-display text-xl text-ink-950">
                     {complaint.title}
                   </h3>
@@ -83,6 +88,10 @@ function ComplaintList({ complaints, selectedId, onSelect, pagination, page, onP
                 <p>
                   <span className="font-semibold text-ink-950">Ward:</span>{" "}
                   {complaint.wardNumber || "-"}
+                </p>
+                <p>
+                  <span className="font-semibold text-ink-950">Location:</span>{" "}
+                  {complaint.village || complaint.municipality || "N/A"}
                 </p>
               </div>
             </button>

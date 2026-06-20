@@ -164,7 +164,10 @@ const ANNOUNCEMENT_AUDIENCES = ["All", "Citizens", "Officers", "Volunteers"];
 
 const API_V1_PREFIX = "/api/v1";
 
+const DEFAULT_SUPER_ADMIN_EMAIL = "superadmin@governance.gov.in";
+
 module.exports = {
+  DEFAULT_SUPER_ADMIN_EMAIL,
   API_V1_PREFIX,
   USER_ROLES,
   OFFICER_ROLES,

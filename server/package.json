@@ -7,7 +7,8 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "seed:admin": "node scripts/seedAdmin.js",
-    "seed:dev": "node scripts/seedDev.js"
+    "seed:dev": "node scripts/seedDev.js",
+    "seed:templates": "node scripts/seedTemplates.js"
   },
   "keywords": [
     "mern",

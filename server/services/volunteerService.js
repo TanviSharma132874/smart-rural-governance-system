@@ -1,6 +1,7 @@
 const Volunteer = require("../models/Volunteer");
 const AppError = require("../utils/AppError");
 const { emitRealtimeEvent } = require("../sockets");
+const notificationService = require("./notificationService");
 
 const formatVolunteer = (volunteer) => ({
   id: volunteer._id,
@@ -145,6 +146,7 @@ const approveVolunteer = async (volunteerId, payload, user) => {
 
   ensureJurisdictionAccess(user, volunteer);
 
+  const previousApprovalStatus = volunteer.approvalStatus;
   volunteer.approvalStatus = payload.approvalStatus;
   volunteer.approvedBy = user.id;
   if (payload.approvalStatus !== "Approved") {
@@ -152,6 +154,46 @@ const approveVolunteer = async (volunteerId, payload, user) => {
   }
   await volunteer.save();
   await volunteer.populate([{ path: "user", select: "name email role" }, { path: "approvedBy", select: "name email role" }]);
+
+  // Create persistent notification for the volunteer upon approval
+  if (payload.approvalStatus === "Approved") {
+    try {
+      await notificationService.createPrivateNotification({
+        recipient: volunteer.user?._id || volunteer.user,
+        type: "Volunteer",
+        action: "Approved",
+        title: "Volunteer Profile Approved",
+        message: "Your volunteer profile has been approved. You are now eligible for emergency assignments.",
+        metadata: {
+          entityId: volunteer._id,
+          entityType: "Volunteer",
+        },
+        priority: "High",
+      });
+    } catch (error) {
+      // Non-blocking failure
+    }
+  }
+
+  // Create persistent notification for the volunteer upon rejection
+  if (payload.approvalStatus === "Rejected" && previousApprovalStatus !== "Rejected") {
+    try {
+      await notificationService.createPrivateNotification({
+        recipient: volunteer.user?._id || volunteer.user,
+        type: "Volunteer",
+        action: "Rejected",
+        title: "Volunteer Profile Rejected",
+        message: `Your volunteer profile application has been rejected. Remarks: ${payload.remarks || volunteer.remarks || "No remarks provided."}`,
+        metadata: {
+          entityId: volunteer._id,
+          entityType: "Volunteer",
+        },
+        priority: "High",
+      });
+    } catch (error) {
+      // Non-blocking failure
+    }
+  }
 
   const formatted = formatVolunteer(volunteer);
   emitRealtimeEvent(

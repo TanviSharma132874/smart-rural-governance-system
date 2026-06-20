@@ -19,6 +19,7 @@ const ResourcesPage = lazy(() => import("../pages/ResourcesPage"));
 const VolunteersPage = lazy(() => import("../pages/VolunteersPage"));
 const ProfilePage = lazy(() => import("../pages/ProfilePage"));
 const UserManagementPage = lazy(() => import("../pages/UserManagementPage"));
+const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
 
 function AppRouter() {
   return (
@@ -58,6 +59,7 @@ function AppRouter() {
           <Route path="/resources" element={<ResourcesPage />} />
           <Route path="/volunteers" element={<VolunteersPage />} />
           <Route path="/announcements" element={<AnnouncementsPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/admin/users" element={<UserManagementPage />} />
         </Route>

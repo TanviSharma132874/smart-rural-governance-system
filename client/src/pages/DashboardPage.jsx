@@ -137,16 +137,16 @@ function CitizenDashboard({ analytics }) {
     <>
       <MetricGrid
         cards={[
-          { eyebrow: "Complaints", title: "Total Complaints", value: getMetric(complaints, "total"), accent: "bg-white/82", description: "All complaints submitted from your account." },
-          { eyebrow: "Complaints", title: "Pending Complaints", value: getMetric(complaints, "pending"), accent: "bg-amber-50", description: "Complaints waiting for first action." },
-          { eyebrow: "Complaints", title: "In Progress", value: getMetric(complaints, "inProgress"), accent: "bg-sky-50", description: "Complaints currently being handled." },
-          { eyebrow: "Complaints", title: "Resolved Complaints", value: getMetric(complaints, "resolved"), accent: "bg-emerald-50", description: "Complaints closed as resolved." },
-          { eyebrow: "Certificates", title: "Total Applications", value: getMetric(certificates, "total"), accent: "bg-white/82", description: "All certificate applications submitted by you." },
-          { eyebrow: "Certificates", title: "Pending Applications", value: getMetric(certificates, "pending"), accent: "bg-amber-50", description: "Submitted or under-review applications." },
-          { eyebrow: "Certificates", title: "Approved Applications", value: getMetric(certificates, "approved"), accent: "bg-emerald-50", description: "Applications approved and ready for records." },
-          { eyebrow: "Certificates", title: "Rejected Applications", value: getMetric(certificates, "rejected"), accent: "bg-rose-50", description: "Applications that need correction or follow-up." },
-          { eyebrow: "SOS", title: "Total SOS Requests", value: getMetric(emergencies, "total"), accent: "bg-white/82", description: "All emergency requests submitted by you." },
-          { eyebrow: "SOS", title: "Active Requests", value: getMetric(emergencies, "active"), accent: "bg-red-50", description: "SOS requests that are not resolved or closed." },
+          { eyebrow: "Complaints", title: "Total Complaints", value: getMetric(complaints, "total"), accent: "bg-white/82", description: "All complaints submitted from your account.", to: "/complaints" },
+          { eyebrow: "Complaints", title: "Pending Complaints", value: getMetric(complaints, "pending"), accent: "bg-amber-50", description: "Complaints waiting for first action.", to: "/complaints?status=Pending" },
+          { eyebrow: "Complaints", title: "In Progress", value: getMetric(complaints, "inProgress"), accent: "bg-sky-50", description: "Complaints currently being handled.", to: "/complaints?status=In Progress" },
+          { eyebrow: "Complaints", title: "Resolved Complaints", value: getMetric(complaints, "resolved"), accent: "bg-emerald-50", description: "Complaints closed as resolved.", to: "/complaints?status=Resolved" },
+          { eyebrow: "Certificates", title: "Total Applications", value: getMetric(certificates, "total"), accent: "bg-white/82", description: "All certificate applications submitted by you.", to: "/certificates" },
+          { eyebrow: "Certificates", title: "Pending Applications", value: getMetric(certificates, "pending"), accent: "bg-amber-50", description: "Submitted or under-review applications.", to: "/certificates?status=Submitted" },
+          { eyebrow: "Certificates", title: "Approved Applications", value: getMetric(certificates, "approved"), accent: "bg-emerald-50", description: "Applications approved and ready for records.", to: "/certificates?status=Approved" },
+          { eyebrow: "Certificates", title: "Rejected Applications", value: getMetric(certificates, "rejected"), accent: "bg-rose-50", description: "Applications that need correction or follow-up.", to: "/certificates?status=Rejected" },
+          { eyebrow: "SOS", title: "Total SOS Requests", value: getMetric(emergencies, "total"), accent: "bg-white/82", description: "All emergency requests submitted by you.", to: "/emergencies" },
+          { eyebrow: "SOS", title: "Active Requests", value: getMetric(emergencies, "active"), accent: "bg-red-50", description: "SOS requests that are not resolved or closed.", to: "/emergencies?queue=active" },
         ]}
       />
       <SectionPanel eyebrow="Announcements" title="Recent announcements">
@@ -166,12 +166,12 @@ function OfficerDashboard({ analytics }) {
     <>
       <MetricGrid
         cards={[
-          { eyebrow: "Complaint Queue", title: "Assigned Complaints", value: getMetric(complaints, "assignedComplaints"), accent: "bg-white/82", description: "Complaints assigned directly to you." },
-          { eyebrow: "Complaint Queue", title: "Department Queue", value: getMetric(complaints, "departmentQueue"), accent: "bg-sky-50", description: "Role-scoped complaints for your department or jurisdiction." },
-          { eyebrow: "Complaint Queue", title: "Escalated Complaints", value: getMetric(complaints, "escalatedComplaints"), accent: "bg-rose-50", description: "Complaints requiring senior oversight." },
-          { eyebrow: "Certificate Queue", title: "Pending Reviews", value: getMetric(certificates, "pendingReviews"), accent: "bg-amber-50", description: "Submitted or under-review certificate applications." },
-          { eyebrow: "Certificate Queue", title: "Approved Today", value: getMetric(certificates, "approvedToday"), accent: "bg-emerald-50", description: "Applications approved since the start of today." },
-          { eyebrow: "Emergency", title: "Active Emergencies", value: getMetric(emergencies, "activeEmergencies"), accent: "bg-red-50", description: "SOS cases still moving through response workflow." },
+          { eyebrow: "Complaint Queue", title: "Assigned Complaints", value: getMetric(complaints, "assignedComplaints"), accent: "bg-white/82", description: "Complaints assigned directly to you.", to: "/complaints?queue=my" },
+          { eyebrow: "Complaint Queue", title: "Department Queue", value: getMetric(complaints, "departmentQueue"), accent: "bg-sky-50", description: "Role-scoped complaints for your department or jurisdiction.", to: "/complaints?queue=all" },
+          { eyebrow: "Complaint Queue", title: "Escalated Complaints", value: getMetric(complaints, "escalatedComplaints"), accent: "bg-rose-50", description: "Complaints requiring senior oversight.", to: "/complaints?status=Escalated" },
+          { eyebrow: "Certificate Queue", title: "Pending Reviews", value: getMetric(certificates, "pendingReviews"), accent: "bg-amber-50", description: "Submitted or under-review certificate applications.", to: "/certificates?status=Submitted" },
+          { eyebrow: "Certificate Queue", title: "Approved Today", value: getMetric(certificates, "approvedToday"), accent: "bg-emerald-50", description: "Applications approved since the start of today.", to: "/certificates?status=Approved" },
+          { eyebrow: "Emergency", title: "Active Emergencies", value: getMetric(emergencies, "activeEmergencies"), accent: "bg-red-50", description: "SOS cases still moving through response workflow.", to: "/emergencies?queue=active" },
           { eyebrow: "Resources", title: "Resource Usage", value: getMetric(emergencies, "resourceUsage"), accent: "bg-cyan-50", description: "Allocated inventory units in your operational scope." },
           { eyebrow: "Volunteers", title: "Available Volunteers", value: getMetric(volunteers, "availableVolunteers"), accent: "bg-emerald-50", description: "Approved volunteers currently available." },
           { eyebrow: "Volunteers", title: "Assigned Volunteers", value: getMetric(volunteers, "assignedVolunteers"), accent: "bg-indigo-50", description: "Volunteers already assigned to emergency support." },
@@ -215,8 +215,8 @@ function AdminDashboard({ analytics }) {
           { eyebrow: "Platform", title: "Total Users", value: getMetric(platform, "totalUsers"), accent: "bg-white/82", description: "Users inside your administrative scope." },
           { eyebrow: "Platform", title: "Citizens", value: getMetric(platform, "citizens"), accent: "bg-emerald-50", description: "Registered citizen accounts." },
           { eyebrow: "Platform", title: "Officers", value: getMetric(platform, "officers"), accent: "bg-sky-50", description: "Officer and administrator accounts." },
-          { eyebrow: "Emergency", title: "Active Cases", value: getMetric(emergencies, "activeCases"), accent: "bg-red-50", description: "Open SOS cases across the jurisdiction." },
-          { eyebrow: "Emergency", title: "Resolved Cases", value: getMetric(emergencies, "resolvedCases"), accent: "bg-emerald-50", description: "Resolved or closed emergency cases." },
+          { eyebrow: "Emergency", title: "Active Cases", value: getMetric(emergencies, "activeCases"), accent: "bg-red-50", description: "Open SOS cases across the jurisdiction.", to: "/emergencies?queue=active" },
+          { eyebrow: "Emergency", title: "Resolved Cases", value: getMetric(emergencies, "resolvedCases"), accent: "bg-emerald-50", description: "Resolved or closed emergency cases.", to: "/emergencies?status=Resolved" },
           { eyebrow: "Resources", title: "Available Resources", value: getMetric(resources, "availableResources"), accent: "bg-cyan-50", description: "Available resource inventory units." },
           { eyebrow: "Resources", title: "Allocated Resources", value: getMetric(resources, "allocatedResources"), accent: "bg-amber-50", description: "Inventory units allocated to response work." },
           { eyebrow: "Volunteers", title: "Registered Volunteers", value: getMetric(volunteers, "registeredVolunteers"), accent: "bg-white/82", description: "Volunteer profiles in your scope." },

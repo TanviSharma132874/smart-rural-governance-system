@@ -9,7 +9,7 @@ import LoaderPanel from "../components/common/LoaderPanel";
 import PaginationControls from "../components/common/PaginationControls";
 import StatusBadge from "../components/common/StatusBadge";
 import { useAppSelector } from "../redux/hooks";
-import { connectLiveUpdates, disconnectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
+import { connectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
 import volunteerService from "../services/volunteerService";
 import { JURISDICTION_TYPES, VOLUNTEER_APPROVAL_STATUSES, VOLUNTEER_AVAILABILITY, VOLUNTEER_SKILLS } from "../utils/constants";
 import { getApiErrorMessage } from "../utils/formatters";
@@ -98,7 +98,6 @@ function VolunteersPage() {
     return () => {
       const activeSocket = getLiveUpdatesSocket();
       activeSocket?.off("volunteer:approved", handleVolunteerApproved);
-      disconnectLiveUpdates();
     };
   }, [approvalFilter, isCitizenFacing, page, profile?.id, user]);
 

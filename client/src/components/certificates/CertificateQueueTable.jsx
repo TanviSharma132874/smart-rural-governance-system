@@ -4,15 +4,16 @@ import StatusBadge from "../common/StatusBadge";
 function CertificateQueueTable({ certificates, onSelect, emptyMessage = "No certificate records found." }) {
   return (
     <DataTable
+      onRowClick={onSelect}
       columns={[
         {
           key: "applicationNumber",
           label: "Application",
           render: (row) => (
-            <button type="button" onClick={() => onSelect(row.id)} className="text-left">
+            <div>
               <p className="font-semibold text-ink-950">{row.applicationNumber}</p>
               <p className="mt-1 text-xs text-ink-800">{row.certificateType}</p>
-            </button>
+            </div>
           ),
         },
         {

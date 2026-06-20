@@ -9,6 +9,7 @@ const { buildCertificatePdfBuffer } = require("./pdfService");
 const { generateCertificateVerificationAssets } = require("./qrCodeService");
 const { emitRealtimeEvent } = require("../sockets");
 const { OFFICER_ROLES } = require("../config/constants");
+const notificationService = require("./notificationService");
 
 const CERTIFICATE_TRANSITIONS = {
   Submitted: ["Under Review"],
@@ -76,10 +77,13 @@ const formatCertificate = (certificate) => ({
   municipality: certificate.municipality,
   ward: certificate.ward,
   status: certificate.status,
-  uploadedDocuments: (certificate.uploadedDocuments || []).map((doc) => ({
-    ...doc.toObject(),
-    path: doc.path.replace(/^\/uploads\//, "/api/v1/files/"),
-  })),
+  uploadedDocuments: (certificate.uploadedDocuments || []).map((doc) => {
+    const docObj = typeof doc.toObject === "function" ? doc.toObject() : doc;
+    return {
+      ...docObj,
+      path: docObj.path ? docObj.path.replace(/^\/uploads\//, "/api/v1/files/") : "",
+    };
+  }),
   certificateDetails: certificate.certificateDetails || {},
   currentVersion: certificate.currentVersion,
   correctionRequest: certificate.correctionRequest,
@@ -170,13 +174,17 @@ const applyCertificate = async (payload, user, files = []) => {
     };
   });
 
-  // Validate required documents
-  template.requiredDocuments.forEach(doc => {
-    if (doc.mandatory) {
-      const isPresent = uploadedDocuments.some(u => u.category === doc.category);
-      if (!isPresent) {
-        throw new AppError(`Mandatory document missing: ${doc.label || doc.category}`, 400);
+  // Validate required documents with multi-document support
+  // Ensure each mandatory requirement is satisfied by a distinct file
+  const availableUploads = [...uploadedDocuments];
+  template.requiredDocuments.forEach((req) => {
+    if (req.mandatory) {
+      const index = availableUploads.findIndex((u) => u.category === req.category);
+      if (index === -1) {
+        throw new AppError(`Mandatory document missing: ${req.label || req.category}`, 400);
       }
+      // Consume this upload so it cannot satisfy another requirement
+      availableUploads.splice(index, 1);
     }
   });
 
@@ -278,6 +286,24 @@ const applyCorrection = async (certificateId, payload, user, files = []) => {
   await certificate.save();
   await certificate.populate(detailPopulateOptions);
 
+  try {
+    await notificationService.createRoomNotification({
+      targetRoom: `department:${certificate.department}`,
+      sender: user.id,
+      type: "Certificate",
+      action: "CorrectionSubmitted",
+      title: "Certificate Correction Submitted",
+      message: `A correction request has been submitted for certificate "${certificate.certificateNumber || certificate.applicationNumber}".`,
+      metadata: {
+        entityId: certificate._id,
+        entityType: "Certificate",
+      },
+      priority: "Medium",
+    });
+  } catch (error) {
+    logger.error(`Notification failed for Certificate Correction Submitted: ${error.message}`);
+  }
+
   const formatted = formatCertificate(certificate);
   emitRealtimeEvent(
     [`user:${user.id}`, `district:${certificate.district}`, `department:${certificate.department}`],
@@ -327,6 +353,24 @@ const resubmitCertificate = async (certificateId, payload, user, files = []) => 
 
   await certificate.save();
   await certificate.populate(detailPopulateOptions);
+
+  try {
+    await notificationService.createRoomNotification({
+      targetRoom: `department:${certificate.department}`,
+      sender: user.id,
+      type: "Certificate",
+      action: "Resubmitted",
+      title: "Certificate Application Resubmitted",
+      message: `Certificate application "${certificate.applicationNumber}" has been resubmitted by the citizen.`,
+      metadata: {
+        entityId: certificate._id,
+        entityType: "Certificate",
+      },
+      priority: "Medium",
+    });
+  } catch (error) {
+    logger.error(`Notification failed for Certificate Resubmitted: ${error.message}`);
+  }
 
   const formatted = formatCertificate(certificate);
   emitRealtimeEvent(
@@ -414,6 +458,51 @@ const getCertificateById = async (certificateId, user) => {
   return formatCertificate(certificate);
 };
 
+const verifyCertificate = async (certificateId) => {
+  const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false })
+    .populate(detailPopulateOptions)
+    .lean();
+
+  if (!certificate) throw new AppError("Certificate not found", 404);
+
+  return formatCertificate(certificate);
+};
+
+const reviewCertificate = async (certificateId, payload, user) => {
+  const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false });
+  if (!certificate) throw new AppError("Certificate not found", 404);
+
+  if (certificate.status !== "Submitted" && certificate.status !== "Resubmitted") {
+    throw new AppError("Only new or resubmitted applications can be moved to review", 400);
+  }
+
+  certificate.status = "Under Review";
+  certificate.remarks = payload.remarks || "Moved to review";
+  
+  certificate.statusHistory.push({
+    status: "Under Review",
+    action: "Moved to Review",
+    remarks: payload.remarks,
+    department: user.department || certificate.department,
+    updatedBy: user.id,
+    version: certificate.currentVersion,
+    detailsSnapshot: certificate.certificateDetails,
+    documentsSnapshot: certificate.uploadedDocuments.map(d => d.path),
+  });
+
+  await certificate.save();
+  await certificate.populate(detailPopulateOptions);
+
+  const formatted = formatCertificate(certificate);
+  emitRealtimeEvent(
+    [`user:${certificate.applicant._id}`, `district:${certificate.district}`, `department:${certificate.department}`],
+    "certificate:updated",
+    { certificate: formatted }
+  );
+
+  return formatted;
+};
+
 const updateCertificateStatus = async (certificateId, payload, user) => {
   const certificate = await Certificate.findOne({ _id: certificateId, isDeleted: false });
   if (!certificate) throw new AppError("Not found", 404);
@@ -422,28 +511,49 @@ const updateCertificateStatus = async (certificateId, payload, user) => {
     throw new AppError(`Invalid transition from ${certificate.status} to ${payload.status}`, 400);
   }
 
-  certificate.status = payload.status;
-  certificate.remarks = payload.remarks || certificate.remarks;
+  const previousStatus = certificate.status;
+  
+  // Safe Correction Rejection Logic: 
+  // If an officer rejects a correction request for an already issued certificate,
+  // revert it to Issued status instead of terminal Rejected.
+  let action = "";
+  if (payload.status === "Rejected" && certificate.certificateNumber) {
+    certificate.status = "Issued";
+    certificate.remarks = payload.remarks || "Correction request denied - Original certificate remains valid.";
+    action = "Correction Request Denied - Original Certificate Maintained";
+  } else {
+    certificate.status = payload.status;
+    certificate.remarks = payload.remarks || certificate.remarks;
+    action = `Workflow Update: ${certificate.status}`;
+  }
 
   if (payload.status === "Approved") {
-    const verificationAssets = await generateCertificateVerificationAssets({
-      certificateId: certificate._id.toString(),
-    });
-
     certificate.approvedBy = user.id;
     certificate.issuedAt = new Date();
-    certificate.qrCode = verificationAssets.qrCode;
-    certificate.verificationUrl = verificationAssets.verificationUrl;
-    certificate.digitalSignature = `${user.name} (${user.department})`;
+    
+    // Archive current number if this is a correction (version > 1 or number exists)
+    if (certificate.certificateNumber) {
+      certificate.previousCertificateNumbers.push(certificate.certificateNumber);
+    }
+
     certificate.certificateNumber = await nextCertificateNumber(certificate.certificateType);
     certificate.expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000 * 3); // 3 years default
 
+    const verificationAssets = await generateCertificateVerificationAssets({
+      certificateNumber: certificate.certificateNumber,
+    });
+
+    certificate.qrCode = verificationAssets.qrCode;
+    certificate.verificationUrl = verificationAssets.verificationUrl;
+    certificate.digitalSignature = `${user.name} (${user.department})`;
+
     certificate.status = "Issued";
+    action = `Workflow Update: ${certificate.status}`;
   }
 
   certificate.statusHistory.push({
     status: certificate.status,
-    action: `Workflow Update: ${certificate.status}`,
+    action: action,
     remarks: payload.remarks,
     department: certificate.department,
     updatedBy: user.id,
@@ -454,6 +564,69 @@ const updateCertificateStatus = async (certificateId, payload, user) => {
 
   await certificate.save();
   await certificate.populate(detailPopulateOptions);
+
+  // Send notification if certificate was issued (moved to Issued status)
+  if (certificate.status === "Issued" && previousStatus !== "Issued") {
+    try {
+      await notificationService.createPrivateNotification({
+        recipient: certificate.applicant._id,
+        type: "Certificate",
+        action: "Issued",
+        title: "Certificate Issued",
+        message: `Your ${certificate.certificateType} certificate has been approved and issued. You can now download it.`,
+        metadata: {
+          entityId: certificate._id,
+          entityType: "Certificate",
+        },
+        priority: "High",
+      });
+    } catch (error) {
+      logger.error(`Notification failed for Certificate Issued: ${error.message}`);
+      // Non-blocking failure; workflow continues
+    }
+  }
+
+  // Send notification if correction is required
+  if (certificate.status === "Correction Required" && previousStatus !== "Correction Required") {
+    try {
+      await notificationService.createPrivateNotification({
+        recipient: certificate.applicant._id,
+        type: "Certificate",
+        action: "Correction Required",
+        title: "Correction Required: Certificate",
+        message: `Action required: Your application for ${certificate.certificateType} (${certificate.applicationNumber}) requires corrections. Remarks: ${certificate.remarks}`,
+        metadata: {
+          entityId: certificate._id,
+          entityType: "Certificate",
+        },
+        priority: "High",
+      });
+    } catch (error) {
+      logger.error(`Notification failed for Certificate Correction Required: ${error.message}`);
+      // Non-blocking failure; workflow continues
+    }
+  }
+
+  // Send notification if certificate was rejected
+  if (certificate.status === "Rejected" && previousStatus !== "Rejected") {
+    try {
+      await notificationService.createPrivateNotification({
+        recipient: certificate.applicant._id,
+        type: "Certificate",
+        action: "Rejected",
+        title: "Certificate Application Rejected",
+        message: `Your application for ${certificate.certificateType} (${certificate.applicationNumber}) has been rejected. Remarks: ${certificate.remarks}`,
+        metadata: {
+          entityId: certificate._id,
+          entityType: "Certificate",
+        },
+        priority: "High",
+      });
+    } catch (error) {
+      logger.error(`Notification failed for Certificate Rejected: ${error.message}`);
+      // Non-blocking failure; workflow continues
+    }
+  }
 
   const formatted = formatCertificate(certificate);
   emitRealtimeEvent(
@@ -485,10 +658,28 @@ const deleteCertificate = async (certificateId, user) => {
   return formatCertificate(certificate);
 };
 
-const verifyCertificatePublic = async (certificateNumber) => {
-  const certificate = await Certificate.findOne({ certificateNumber, isDeleted: false })
+const verifyCertificatePublic = async (identifier) => {
+  const mongoose = require("mongoose");
+  
+  // Search by current number OR any historical number
+  let query = {
+    $or: [
+      { certificateNumber: identifier },
+      { previousCertificateNumbers: identifier }
+    ],
+    isDeleted: false
+  };
+  
+  // Backward compatibility: If not found by number, try by MongoDB ID
+  let certificate = await Certificate.findOne(query)
     .populate({ path: "applicant", select: "name" })
     .lean();
+
+  if (!certificate && mongoose.Types.ObjectId.isValid(identifier)) {
+    certificate = await Certificate.findOne({ _id: identifier, isDeleted: false })
+      .populate({ path: "applicant", select: "name" })
+      .lean();
+  }
 
   if (!certificate) {
     return { status: "Invalid", message: "No such certificate found in our registry." };
@@ -518,6 +709,8 @@ module.exports = {
   getMyApplications,
   getDepartmentQueue,
   getCertificateById,
+  verifyCertificate,
+  reviewCertificate,
   updateCertificateStatus,
   downloadCertificate,
   deleteCertificate,

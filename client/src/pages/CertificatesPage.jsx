@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 
 import AuditPanel from "../components/certificates/AuditPanel";
@@ -15,11 +16,17 @@ import PaginationControls from "../components/common/PaginationControls";
 import StatusBadge from "../components/common/StatusBadge";
 import { useAppSelector } from "../redux/hooks";
 import certificateService from "../services/certificateService";
-import { connectLiveUpdates, disconnectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
+import { connectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
 import { CERTIFICATE_STATUSES, CERTIFICATE_TYPES } from "../utils/constants";
 import { getApiErrorMessage } from "../utils/formatters";
 
 function CertificatesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlId = searchParams.get("id");
+  const urlStatus = searchParams.get("status");
+  const urlCertificateType = searchParams.get("certificateType");
+  const urlSearch = searchParams.get("search");
+
   const user = useAppSelector((state) => state.auth.user);
   const isCitizen = user?.role === "citizen";
   const isOfficer = !isCitizen;
@@ -28,9 +35,29 @@ function CertificatesPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [certificateTypeFilter, setCertificateTypeFilter] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState(urlStatus || "");
+  const [certificateTypeFilter, setCertificateTypeFilter] = useState(urlCertificateType || "");
+  const [searchTerm, setSearchTerm] = useState(urlSearch || "");
+
+  // Sync URL -> State (Handles Browser Back/Forward)
+  useEffect(() => {
+    const targetStatus = urlStatus || "";
+    if (targetStatus !== statusFilter) {
+      setStatusFilter(targetStatus);
+    }
+
+    const targetType = urlCertificateType || "";
+    if (targetType !== certificateTypeFilter) {
+      setCertificateTypeFilter(targetType);
+    }
+
+    const targetSearch = urlSearch || "";
+    if (targetSearch !== searchTerm) {
+      setSearchTerm(targetSearch);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlStatus, urlCertificateType, urlSearch]);
+
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -61,7 +88,10 @@ function CertificatesPage() {
   );
   const assetBaseUrl = (import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1").replace("/api/v1", "").replace("/api", "");
 
-  const loadCertificateDetail = async (id) => {
+  const loadCertificateDetail = useCallback(async (id, force = false) => {
+    // If we're already viewing this certificate and not forcing a refresh, skip.
+    if (!force && selectedCertificate?.id === id) return;
+
     try {
       const response = await certificateService.getById(id);
       setSelectedCertificate(response.certificate);
@@ -71,7 +101,7 @@ function CertificatesPage() {
       setError(message);
       toast.error(message);
     }
-  };
+  }, [selectedCertificate?.id]);
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
@@ -84,45 +114,85 @@ function CertificatesPage() {
       const certificates = response.certificates || [];
       setRecords(certificates);
       setPagination(response.pagination || { page: 1, limit: 8, totalPages: 0 });
-
-      const selectedId = selectedCertificate?.id;
-      const nextSelected = selectedId && certificates.some((item) => item.id === selectedId) ? selectedId : certificates[0]?.id;
-
-      if (nextSelected) {
-        await loadCertificateDetail(nextSelected);
-      } else {
-        setSelectedCertificate(null);
-      }
     } catch (requestError) {
       const message = getApiErrorMessage(requestError);
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [isCitizen, queueParams, selectedCertificate?.id]);
+  }, [isCitizen, queueParams]);
+
+  // Reconciliation Effect: Sync selection whenever records change or URL ID changes
+  useEffect(() => {
+    if (loading || records.length === 0) return;
+
+    if (urlId) {
+      if (!selectedCertificate || selectedCertificate.id !== urlId) {
+        // Prioritize deep-linked ID if it's not already selected
+        loadCertificateDetail(urlId);
+      }
+    } else {
+      // Fallback to first record of current page when no specific ID is requested
+      if (!selectedCertificate || selectedCertificate.id !== records[0].id) {
+        loadCertificateDetail(records[0].id);
+      }
+    }
+  }, [records, loading, selectedCertificate, loadCertificateDetail, urlId]);
 
   const handleStatusFilterChange = (value) => {
     setStatusFilter(value);
     setPage(1);
+    
+    const params = new URLSearchParams(searchParams);
+    if (value) {
+      params.set("status", value);
+    } else {
+      params.delete("status");
+    }
+    setSearchParams(params, { replace: true });
   };
 
   const handleCertificateTypeFilterChange = (value) => {
     setCertificateTypeFilter(value);
     setPage(1);
+
+    const params = new URLSearchParams(searchParams);
+    if (value) {
+      params.set("certificateType", value);
+    } else {
+      params.delete("certificateType");
+    }
+    setSearchParams(params, { replace: true });
   };
 
   const handleSearchChange = (value) => {
     setSearchTerm(value);
     setPage(1);
+
+    const params = new URLSearchParams(searchParams);
+    if (value) {
+      params.set("search", value);
+    } else {
+      params.delete("search");
+    }
+    setSearchParams(params, { replace: true });
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      loadRecords();
-    }, 0);
-
-    return () => clearTimeout(timer);
+    loadRecords();
   }, [loadRecords]);
+
+  const onRecordSelect = (id) => {
+    loadCertificateDetail(id, true);
+
+    const params = new URLSearchParams(searchParams);
+    if (id) {
+      params.set("id", id);
+    } else {
+      params.delete("id");
+    }
+    setSearchParams(params, { replace: true });
+  };
 
   useEffect(() => {
     const socket = connectLiveUpdates();
@@ -155,7 +225,6 @@ function CertificatesPage() {
       activeSocket?.off("certificate:approved", handleCertificateUpdated);
       activeSocket?.off("certificate:rejected", handleCertificateUpdated);
       activeSocket?.off("certificate:updated", handleCertificateUpdated);
-      disconnectLiveUpdates();
     };
   }, [user, isCitizen, selectedCertificate?.id, loadRecords]);
 
@@ -176,14 +245,8 @@ function CertificatesPage() {
     }
   };
 
-  const previewPdf = async (id) => {
-    try {
-      const blob = await certificateService.download(id);
-      const url = window.URL.createObjectURL(blob);
-      setPdfPreview(url);
-    } catch (requestError) {
-      toast.error(getApiErrorMessage(requestError));
-    }
+  const previewPdf = (id) => {
+    setPdfPreview(`/certificates/download/${id}`);
   };
 
   return (
@@ -303,15 +366,16 @@ function CertificatesPage() {
             </div>
             {isCitizen ? (
               <DataTable
+                onRowClick={onRecordSelect}
                 columns={[
                   {
                     key: "applicationNumber",
                     label: "Application",
                     render: (row) => (
-                      <button type="button" onClick={() => loadCertificateDetail(row.id)} className="text-left">
+                      <div>
                         <p className="font-semibold text-ink-950">{row.applicationNumber}</p>
                         <p className="mt-1 text-xs text-ink-800">{row.certificateType}</p>
-                      </button>
+                      </div>
                     ),
                   },
                   {
@@ -329,7 +393,7 @@ function CertificatesPage() {
                 emptyMessage="No certificate applications found."
               />
             ) : (
-              <CertificateQueueTable certificates={records} onSelect={loadCertificateDetail} emptyMessage="No department applications found." />
+              <CertificateQueueTable certificates={records} onSelect={onRecordSelect} emptyMessage="No department applications found." />
             )}
           </section>
 
@@ -377,16 +441,21 @@ function CertificatesPage() {
                   ) : null}
 
                   <div className="mt-5 flex flex-wrap gap-3">
-                    {selectedCertificate.uploadedDocuments?.map((documentPath) => (
-                      <button
-                        key={documentPath}
-                        type="button"
-                        onClick={() => setDocumentPreview(`${assetBaseUrl}${documentPath}`)}
-                        className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-ink-900 transition hover:border-leaf-500 hover:text-leaf-600"
-                      >
-                        Preview Document
-                      </button>
-                    ))}
+                    {selectedCertificate.uploadedDocuments?.map((doc) => {
+                      const docPath = typeof doc === "string" ? doc : doc.path;
+                      const label = typeof doc === "object" && doc.category ? `Preview ${doc.category}` : "Preview Document";
+                      
+                      return (
+                        <button
+                          key={docPath}
+                          type="button"
+                          onClick={() => setDocumentPreview(`${assetBaseUrl}${docPath}`)}
+                          className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-ink-900 transition hover:border-leaf-500 hover:text-leaf-600"
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                     {selectedCertificate.status === "Approved" || selectedCertificate.status === "Issued" ? (
                       <button
                         type="button"
@@ -630,7 +699,7 @@ function CertificatesPage() {
             setIsCorrectionModalOpen(false);
             setCorrectionForm({ reasonForChange: "", requestedChanges: "" });
             setCorrectionFiles([]);
-            await loadRecords();
+            await loadRecords(selectedCertificate?.id);
           } catch (err) {
             toast.error(getApiErrorMessage(err));
           } finally {

@@ -1,0 +1,469 @@
+import { useMemo, useState, useEffect } from "react";
+import { toast } from "react-hot-toast";
+
+import { getAllowedTransitions, getPriorityLabel, getRelativeTime } from "../../utils/formatters";
+import BaseModal from "../common/BaseModal";
+import FormField from "../common/FormField";
+import StatusBadge from "../common/StatusBadge";
+import apiClient from "../../api/apiClient";
+
+function ProtectedImage({ src, alt, className }) {
+  const [blobUrl, setBlobUrl] = useState("");
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let currentBlobUrl = "";
+
+    const fetchImage = async () => {
+      if (!src) return;
+      try {
+        const cleanPath = src.startsWith("/api/v1") ? src.replace("/api/v1", "") : src;
+        const response = await apiClient.get(cleanPath, { responseType: "blob" });
+        if (active) {
+          const url = URL.createObjectURL(response.data);
+          currentBlobUrl = url;
+          setBlobUrl(url);
+        }
+      } catch (err) {
+        console.error("Failed to load protected image:", err);
+        if (active) setError(true);
+      }
+    };
+
+    fetchImage();
+    return () => {
+      active = false;
+      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+    };
+  }, [src]);
+
+  if (error) {
+    return (
+      <div className={`${className} flex items-center justify-center bg-slate-100 text-[10px] text-rose-400`}>
+        Failed to load image
+      </div>
+    );
+  }
+
+  if (!blobUrl) {
+    return <div className={`${className} animate-pulse bg-slate-100`} />;
+  }
+
+  return <img src={blobUrl} alt={alt} className={className} />;
+}
+
+function ComplaintDetailsCard({
+  complaint,
+  currentUser,
+  canManage,
+  isBusy,
+  onStatusUpdate,
+  onAssignToSelf,
+  onAssignToOfficer,
+}) {
+  const [nextStatus, setNextStatus] = useState("");
+  const [nextPriority, setNextPriority] = useState("");
+  const [officerRemarks, setOfficerRemarks] = useState("");
+  const [resolutionNotes, setResolutionNotes] = useState("");
+  const [resolutionFiles, setResolutionFiles] = useState([]);
+  const [assignedOfficer, setAssignedOfficer] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  
+  const transitions = useMemo(() => {
+    if (!complaint?.status) return [];
+    
+    const masterTransitions = {
+      Pending: ["Reviewed", "Rejected"],
+      Reviewed: ["In Progress", "Rejected"],
+      "In Progress": ["Resolved", "Rejected"],
+      Resolved: ["Closed", "In Progress"],
+      Closed: [],
+      Rejected: [],
+    };
+
+    const rawAllowed = masterTransitions[complaint.status] || [];
+    const role = currentUser?.role;
+    const isAdmin = ["districtAdmin", "stateAdmin", "superAdmin"].includes(role);
+    
+    if (isAdmin) return rawAllowed;
+
+    if (role === "panchayatOfficer") {
+      if (complaint.status === "Pending") return ["Reviewed", "Rejected"];
+      if (complaint.status === "Resolved") return ["Closed"];
+      return [];
+    }
+
+    if (role === "departmentOfficer") {
+      if (complaint.status === "Reviewed") return ["In Progress", "Rejected"];
+      if (complaint.status === "In Progress") return ["Resolved", "Rejected"];
+      return [];
+    }
+
+    return [];
+  }, [complaint?.status, currentUser?.role]);
+
+  if (!complaint) {
+    return (
+      <div className="glass-panel rounded-[32px] border border-white/70 bg-white/80 p-6 text-center text-sm text-ink-800">
+        Select a complaint to review the full record, images, and workflow actions.
+      </div>
+    );
+  }
+
+  const handleStatusSubmit = (event) => {
+    event.preventDefault();
+    if (!nextStatus) {
+      return;
+    }
+
+    const payload = new FormData();
+    payload.append("status", nextStatus);
+    payload.append("priority", nextPriority || complaint.priority);
+    if (officerRemarks) {
+      payload.append("officerRemarks", officerRemarks);
+    }
+    if (resolutionNotes) {
+      payload.append("resolutionNotes", resolutionNotes);
+    }
+    resolutionFiles.forEach((file) => payload.append("resolutionImages", file));
+
+    onStatusUpdate(complaint.id, payload);
+  };
+
+  const handleAssignSubmit = (event) => {
+    event.preventDefault();
+    if (!assignedOfficer) {
+      return;
+    }
+
+    onAssignToOfficer(complaint.id, assignedOfficer);
+    setAssignedOfficer("");
+  };
+
+  const isCitizenOwner = currentUser?.role === "citizen" && complaint.citizenId?.id === currentUser?.id;
+  const isResolved = complaint.status === "Resolved";
+
+  return (
+    <section className="glass-panel rounded-[32px] border border-white/70 bg-white/90 p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-leaf-600">Complaint Detail</p>
+          <h2 className="mt-2 font-display text-2xl text-ink-950">{complaint.title}</h2>
+          <p className="mt-2 text-sm leading-6 text-ink-800">{complaint.description}</p>
+          {complaint.citizenRemarks ? <p className="mt-2 text-sm leading-6 text-amber-900">Citizen remarks: {complaint.citizenRemarks}</p> : null}
+        </div>
+        <div className="text-right text-sm text-ink-800">
+          <p>{getRelativeTime(complaint.createdAt)}</p>
+          <p className="mt-1 font-medium">Category: {complaint.category}</p>
+          <p className="mt-1 font-medium">Subcategory: {complaint.subcategory || "-"}</p>
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <StatusBadge value={complaint.status} />
+        <StatusBadge type="priority" value={complaint.priority} />
+        {complaint.isEscalated ? <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-900">Escalated for oversight</span> : null}
+        <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-900">
+          {getPriorityLabel(complaint.priority)} priority workflow
+        </span>
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-[26px] bg-slate-50 p-4">
+          <h3 className="font-display text-lg text-ink-950">Ownership</h3>
+          <div className="mt-3 space-y-3 text-sm text-ink-800">
+            <p>
+              <span className="font-semibold text-ink-950">Citizen:</span>{" "}
+              {complaint.citizenId?.name || "Unknown"} ({complaint.citizenId?.village || "No village"})
+            </p>
+            <p>
+              <span className="font-semibold text-ink-950">Assigned Officer:</span>{" "}
+              {complaint.assignedOfficer?.name || "Unassigned"}
+            </p>
+            <p>
+              <span className="font-semibold text-ink-950">Responsible Department:</span>{" "}
+              {complaint.responsibleDepartment || "-"}
+            </p>
+            <p>
+              <span className="font-semibold text-ink-950">Ward Number:</span>{" "}
+              {complaint.wardNumber || "-"}
+            </p>
+            <p>
+              <span className="font-semibold text-ink-950">Location:</span>{" "}
+              {complaint.location?.address || "Not provided"}
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-[26px] bg-slate-50 p-4">
+          <h3 className="font-display text-lg text-ink-950">Evidence</h3>
+          {complaint.images?.length ? (
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {complaint.images.map((image) => (
+                <div key={image} className="overflow-hidden rounded-2xl border border-slate-200">
+                  <ProtectedImage src={image} alt={complaint.title} className="h-28 w-full object-cover" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-ink-800">No image proof uploaded for this complaint.</p>
+          )}
+        </div>
+      </div>
+
+      {(complaint.officerRemarks || complaint.resolutionNotes || complaint.resolutionImages?.length) ? (
+        <div className="mt-6 rounded-[26px] bg-slate-50 p-4">
+          <h3 className="font-display text-lg text-ink-950">Officer Resolution Summary</h3>
+          <div className="mt-3 space-y-3 text-sm text-ink-800">
+            {complaint.officerRemarks ? <p><span className="font-semibold text-ink-950">Officer Remarks:</span> {complaint.officerRemarks}</p> : null}
+            {complaint.resolutionNotes ? <p><span className="font-semibold text-ink-950">Resolution Notes:</span> {complaint.resolutionNotes}</p> : null}
+            {complaint.resolutionImages?.length ? (
+              <div className="grid grid-cols-2 gap-3">
+                {complaint.resolutionImages.map((image) => (
+                  <div key={image} className="overflow-hidden rounded-2xl border border-slate-200">
+                    <ProtectedImage src={image} alt="Resolution evidence" className="h-28 w-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {isCitizenOwner && isResolved ? (
+        <div className="mt-6 rounded-[26px] border-2 border-leaf-200 bg-leaf-50/30 p-6">
+          <h3 className="font-display text-xl text-ink-950">Resolution Verification</h3>
+          <p className="mt-2 text-sm text-ink-800 leading-relaxed">
+            The department has marked this case as resolved. Please review the resolution notes and evidence in the timeline below.
+          </p>
+          <div className="mt-6 grid gap-4">
+            <FormField
+              label="Citizen Verification Remarks"
+              name="citizenRemarks"
+              as="textarea"
+              value={officerRemarks}
+              onChange={(e) => setOfficerRemarks(e.target.value)}
+              placeholder="Provide feedback on the resolution. Required if reopening the case."
+            />
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => {
+                  const payload = new FormData();
+                  payload.append("status", "Closed");
+                  if (officerRemarks) payload.append("officerRemarks", officerRemarks);
+                  onStatusUpdate(complaint.id, payload);
+                }}
+                className="rounded-full bg-leaf-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-leaf-700 shadow-md disabled:opacity-50"
+              >
+                Confirm & Close Case
+              </button>
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => {
+                  if (!officerRemarks) {
+                    toast.error("Please explain why the resolution is unsatisfactory.");
+                    return;
+                  }
+                  const payload = new FormData();
+                  payload.append("status", "In Progress");
+                  payload.append("officerRemarks", officerRemarks);
+                  onStatusUpdate(complaint.id, payload);
+                }}
+                className="rounded-full border-2 border-amber-600 bg-white px-6 py-3 text-sm font-bold text-amber-700 transition hover:bg-amber-50 shadow-sm disabled:opacity-50"
+              >
+                Issue Not Resolved (Reopen)
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {canManage ? (
+        <div className="mt-6 grid gap-4 xl:grid-cols-2">
+          <form className="rounded-[26px] border border-slate-200 p-4" onSubmit={handleStatusSubmit}>
+            <h3 className="font-display text-lg text-ink-950">Update workflow</h3>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <FormField
+                label="Next Status"
+                name="nextStatus"
+                as="select"
+                value={nextStatus}
+                onChange={(event) => setNextStatus(event.target.value)}
+                options={[
+                  { value: "", label: "Choose transition" },
+                  ...transitions.map((status) => ({ value: status, label: status })),
+                ]}
+              />
+              <FormField
+                label="Priority"
+                name="nextPriority"
+                as="select"
+                value={nextPriority || complaint.priority}
+                onChange={(event) => setNextPriority(event.target.value)}
+                options={["Low", "Medium", "High", "Critical"].map((priority) => ({
+                  value: priority,
+                  label: priority,
+                }))}
+              />
+            </div>
+            <div className="mt-4 grid gap-4">
+              <FormField
+                label="Officer Remarks"
+                name="officerRemarks"
+                as="textarea"
+                value={officerRemarks}
+                onChange={(event) => setOfficerRemarks(event.target.value)}
+                placeholder="Add officer remarks or progress updates."
+              />
+              {nextStatus === "Resolved" ? (
+                <>
+                  <FormField
+                    label="Resolution Notes"
+                    name="resolutionNotes"
+                    as="textarea"
+                    value={resolutionNotes}
+                    onChange={(event) => setResolutionNotes(event.target.value)}
+                    placeholder="Document how the complaint was resolved."
+                  />
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-ink-900">Resolution Images</span>
+                    <input type="file" multiple accept="image/*" onChange={(event) => setResolutionFiles(Array.from(event.target.files || []))} className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-ink-900" />
+                  </label>
+                </>
+              ) : null}
+            </div>
+            <button
+              type="submit"
+              disabled={isBusy || !transitions.length}
+              className="mt-4 inline-flex rounded-full bg-ink-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-leaf-600 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isBusy ? "Saving..." : transitions.length ? "Save workflow update" : "Workflow closed"}
+            </button>
+          </form>
+
+          <div className="rounded-[26px] border border-slate-200 p-4">
+            <h3 className="font-display text-lg text-ink-950">Assignment controls</h3>
+            <p className="mt-2 text-sm leading-6 text-ink-800">
+              Use self-assignment for officer workflow, or provide another officer ID if an admin needs to re-route the case.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={isBusy || currentUser?.id === complaint.assignedOfficer?.id}
+                onClick={() => onAssignToSelf(complaint.id)}
+                className="rounded-full bg-leaf-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-leaf-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Assign to me
+              </button>
+              <span className="rounded-full bg-slate-100 px-4 py-3 text-sm font-semibold text-ink-800">
+                My role: {currentUser?.role || "Unknown"}
+              </span>
+            </div>
+
+            <form className="mt-4 flex flex-col gap-3 sm:flex-row" onSubmit={handleAssignSubmit}>
+              <input
+                type="text"
+                value={assignedOfficer}
+                onChange={(event) => setAssignedOfficer(event.target.value)}
+                placeholder="Assign by officer ID"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-ink-950 outline-none transition focus:border-leaf-500 focus:ring-4 focus:ring-leaf-500/10"
+              />
+              <button
+                type="submit"
+                disabled={isBusy || !assignedOfficer}
+                className="rounded-full bg-amber-400 px-5 py-3 text-sm font-bold text-ink-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Assign by ID
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-8 border-t border-slate-100 pt-6">
+        <h3 className="font-display text-xl text-ink-950 flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-leaf-600" />
+          Complaint Workflow Timeline
+        </h3>
+        <p className="mt-2 text-xs text-slate-500 uppercase tracking-widest font-bold">Official Audit Trail</p>
+        
+        <div className="mt-6 space-y-0 relative">
+          <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-slate-100" />
+          
+          {(complaint.statusHistory || []).length ? (
+            [...complaint.statusHistory].reverse().map((entry, index) => (
+              <div key={`${entry.status}-${entry.updatedAt}-${index}`} className="relative pl-10 pb-8 last:pb-0">
+                <div className={`absolute left-0 top-1 h-8 w-8 rounded-full border-4 border-white shadow-sm flex items-center justify-center text-white text-[10px] font-bold ${
+                  index === 0 ? 'bg-leaf-600' : 'bg-slate-300'
+                }`}>
+                  {complaint.statusHistory.length - index}
+                </div>
+                
+                <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                    <StatusBadge value={entry.status} />
+                    <p className="text-[10px] font-bold uppercase tracking-tighter text-slate-400">
+                      {new Date(entry.updatedAt).toLocaleString("en-IN", { 
+                        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                      })}
+                    </p>
+                  </div>
+                  
+                  <p className="text-sm font-bold text-ink-950 leading-tight">{entry.action || `Status changed to ${entry.status}`}</p>
+                  
+                  <div className="mt-3 flex flex-col gap-1">
+                    <p className="text-xs text-ink-900">
+                      <span className="text-slate-400 uppercase text-[9px] font-bold mr-1">Actor:</span>
+                      <span className="font-semibold">{entry.updatedBy?.name || "System"}</span>
+                      {entry.updatedBy?.role ? <span className="text-leaf-600 ml-1">({entry.updatedBy.role})</span> : null}
+                    </p>
+                    {entry.responsibleDepartment ? (
+                      <p className="text-xs text-ink-800">
+                        <span className="text-slate-400 uppercase text-[9px] font-bold mr-1">Dept:</span>
+                        {entry.responsibleDepartment}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {entry.remarks ? (
+                    <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs italic text-slate-600 border-l-2 border-slate-200">
+                      "{entry.remarks}"
+                    </div>
+                  ) : null}
+
+                  {entry.resolutionNotes ? (
+                    <div className="mt-3 rounded-xl bg-leaf-50 p-3 text-xs text-leaf-900 border-l-2 border-leaf-200">
+                      <p className="font-bold mb-1 uppercase text-[9px]">Resolution Notes</p>
+                      {entry.resolutionNotes}
+                    </div>
+                  ) : null}
+
+                  {entry.resolutionImages?.length ? (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      {entry.resolutionImages.map((image) => (
+                        <div key={image} className="overflow-hidden rounded-xl border border-slate-100">
+                          <ProtectedImage src={image} alt="Resolution proof" className="h-20 w-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="pl-10">
+              <p className="text-sm text-slate-500 italic">No workflow history recorded yet.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default ComplaintDetailsCard;
+

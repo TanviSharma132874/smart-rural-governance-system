@@ -11,7 +11,7 @@ import LoaderPanel from "../components/common/LoaderPanel";
 import PaginationControls from "../components/common/PaginationControls";
 import StatusBadge from "../components/common/StatusBadge";
 import { useAppSelector } from "../redux/hooks";
-import { connectLiveUpdates, disconnectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
+import { connectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
 import resourceService from "../services/resourceService";
 import { EMERGENCY_DEPARTMENTS, JURISDICTION_TYPES, RESOURCE_STATUSES, RESOURCE_TYPES } from "../utils/constants";
 import { getApiErrorMessage } from "../utils/formatters";
@@ -112,7 +112,6 @@ function ResourcesPage() {
     return () => {
       const activeSocket = getLiveUpdatesSocket();
       activeSocket?.off("resource:updated", handleResourceUpdated);
-      disconnectLiveUpdates();
     };
   }, [canManage, page, resourceTypeFilter, statusFilter, user]);
 

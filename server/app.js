@@ -14,6 +14,7 @@ const emergencyRoutes = require("./routes/emergencyRoutes");
 const resourceRoutes = require("./routes/resourceRoutes");
 const volunteerRoutes = require("./routes/volunteerRoutes");
 const announcementRoutes = require("./routes/announcementRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 const fileRoutes = require("./routes/fileRoutes");
 const logger = require("./utils/logger");
 const { apiRateLimiter, authRateLimiter } = require("./middlewares/rateLimitMiddleware");
@@ -57,6 +58,7 @@ app.use("/api/emergencies", emergencyRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/volunteers", volunteerRoutes);
 app.use("/api/announcements", announcementRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/files", fileRoutes);
 
 app.use(`${API_V1_PREFIX}/auth`, authRateLimiter, authRoutes);
@@ -68,6 +70,7 @@ app.use(`${API_V1_PREFIX}/emergencies`, emergencyRoutes);
 app.use(`${API_V1_PREFIX}/resources`, resourceRoutes);
 app.use(`${API_V1_PREFIX}/volunteers`, volunteerRoutes);
 app.use(`${API_V1_PREFIX}/announcements`, announcementRoutes);
+app.use(`${API_V1_PREFIX}/notifications`, notificationRoutes);
 app.use(`${API_V1_PREFIX}/files`, fileRoutes);
 
 app.use(notFound);

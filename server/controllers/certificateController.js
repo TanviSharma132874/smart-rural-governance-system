@@ -124,6 +124,7 @@ const verifyCertificatePublic = asyncHandler(async (req, res) => {
 
 module.exports = {
   applyCertificate,
+  applyCorrection,
   resubmitCertificate,
   getMyApplications,
   getDepartmentQueue,

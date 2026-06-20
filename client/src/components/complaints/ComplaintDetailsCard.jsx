@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { toast } from "react-hot-toast";
 
 import { getAllowedTransitions, getPriorityLabel, getRelativeTime } from "../../utils/formatters";
 import BaseModal from "../common/BaseModal";
@@ -68,36 +69,32 @@ function ComplaintDetailsCard({
   const [resolutionFiles, setResolutionFiles] = useState([]);
   const [assignedOfficer, setAssignedOfficer] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  
   const transitions = useMemo(() => {
     if (!complaint?.status) return [];
     
-    // 1. Define Master Transition Mapping (Mirroring Backend)
     const masterTransitions = {
       Pending: ["Reviewed", "Rejected"],
       Reviewed: ["In Progress", "Rejected"],
       "In Progress": ["Resolved", "Rejected"],
-      Resolved: ["Closed"],
+      Resolved: ["Closed", "In Progress"],
       Closed: [],
       Rejected: [],
     };
 
     const rawAllowed = masterTransitions[complaint.status] || [];
-    
-    // 2. Filter based on Role (Workflow Discipline)
     const role = currentUser?.role;
     const isAdmin = ["districtAdmin", "stateAdmin", "superAdmin"].includes(role);
     
     if (isAdmin) return rawAllowed;
 
     if (role === "panchayatOfficer") {
-      // Panchayat can Review or Reject Pending, or Close Resolved
       if (complaint.status === "Pending") return ["Reviewed", "Rejected"];
       if (complaint.status === "Resolved") return ["Closed"];
       return [];
     }
 
     if (role === "departmentOfficer") {
-      // Department can move Reviewed -> In Progress OR In Progress -> Resolved
       if (complaint.status === "Reviewed") return ["In Progress", "Rejected"];
       if (complaint.status === "In Progress") return ["Resolved", "Rejected"];
       return [];
@@ -143,6 +140,9 @@ function ComplaintDetailsCard({
     onAssignToOfficer(complaint.id, assignedOfficer);
     setAssignedOfficer("");
   };
+
+  const isCitizenOwner = currentUser?.role === "citizen" && complaint.citizenId?.id === currentUser?.id;
+  const isResolved = complaint.status === "Resolved";
 
   return (
     <section className="glass-panel rounded-[32px] border border-white/70 bg-white/90 p-6">
@@ -227,6 +227,57 @@ function ComplaintDetailsCard({
                 ))}
               </div>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {isCitizenOwner && isResolved ? (
+        <div className="mt-6 rounded-[26px] border-2 border-leaf-200 bg-leaf-50/30 p-6">
+          <h3 className="font-display text-xl text-ink-950">Resolution Verification</h3>
+          <p className="mt-2 text-sm text-ink-800 leading-relaxed">
+            The department has marked this case as resolved. Please review the resolution notes and evidence in the timeline below.
+          </p>
+          <div className="mt-6 grid gap-4">
+            <FormField
+              label="Citizen Verification Remarks"
+              name="citizenRemarks"
+              as="textarea"
+              value={officerRemarks}
+              onChange={(e) => setOfficerRemarks(e.target.value)}
+              placeholder="Provide feedback on the resolution. Required if reopening the case."
+            />
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => {
+                  const payload = new FormData();
+                  payload.append("status", "Closed");
+                  if (officerRemarks) payload.append("officerRemarks", officerRemarks);
+                  onStatusUpdate(complaint.id, payload);
+                }}
+                className="rounded-full bg-leaf-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-leaf-700 shadow-md disabled:opacity-50"
+              >
+                Confirm & Close Case
+              </button>
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => {
+                  if (!officerRemarks) {
+                    toast.error("Please explain why the resolution is unsatisfactory.");
+                    return;
+                  }
+                  const payload = new FormData();
+                  payload.append("status", "In Progress");
+                  payload.append("officerRemarks", officerRemarks);
+                  onStatusUpdate(complaint.id, payload);
+                }}
+                className="rounded-full border-2 border-amber-600 bg-white px-6 py-3 text-sm font-bold text-amber-700 transition hover:bg-amber-50 shadow-sm disabled:opacity-50"
+              >
+                Issue Not Resolved (Reopen)
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -333,7 +384,6 @@ function ComplaintDetailsCard({
         </div>
       ) : null}
 
-      {/* Timeline Section */}
       <div className="mt-8 border-t border-slate-100 pt-6">
         <h3 className="font-display text-xl text-ink-950 flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-leaf-600" />

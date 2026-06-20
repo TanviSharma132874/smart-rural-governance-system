@@ -1,4 +1,4 @@
-function DataTable({ columns, rows, emptyMessage = "No records found." }) {
+function DataTable({ columns, rows, onRowClick, emptyMessage = "No records found." }) {
   const safeRows = Array.isArray(rows) ? rows : [];
 
   return (
@@ -18,7 +18,11 @@ function DataTable({ columns, rows, emptyMessage = "No records found." }) {
           <tbody>
             {safeRows.length ? (
               safeRows.map((row, rowIndex) => (
-                <tr key={row.id || rowIndex} className="border-t border-slate-100">
+                <tr 
+                  key={row.id || rowIndex} 
+                  className={`border-t border-slate-100 transition ${onRowClick ? "cursor-pointer hover:bg-slate-50" : ""}`}
+                  onClick={() => onRowClick && onRowClick(row.id)}
+                >
                   {columns.map((column) => (
                     <td key={column.key} className="px-4 py-3 align-top text-ink-800">
                       {column.render ? column.render(row) : row[column.key]}

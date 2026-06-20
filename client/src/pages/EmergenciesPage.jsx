@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-hot-toast";
@@ -13,7 +14,7 @@ import { useAppSelector } from "../redux/hooks";
 import emergencyService from "../services/emergencyService";
 import resourceService from "../services/resourceService";
 import volunteerService from "../services/volunteerService";
-import { connectLiveUpdates, disconnectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
+import { connectLiveUpdates, getLiveUpdatesSocket } from "../services/liveUpdatesService";
 import { EMERGENCY_SEVERITIES, EMERGENCY_TYPES, JURISDICTION_TYPES } from "../utils/constants";
 import { emergencyCreateSchema } from "../utils/validationSchemas";
 import { formatDate, getApiErrorMessage, getEmergencyAllowedTransitions } from "../utils/formatters";
@@ -22,6 +23,12 @@ const EmergencyAnalyticsPanel = lazy(() => import("../components/emergency/Emerg
 const EmergencyMapPanel = lazy(() => import("../components/emergency/EmergencyMapPanel"));
 
 function EmergenciesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlId = searchParams.get("id");
+  const urlStatus = searchParams.get("status");
+  const urlSeverity = searchParams.get("severity");
+  const urlQueue = searchParams.get("queue");
+
   const user = useAppSelector((state) => state.auth.user);
   const isCitizen = user?.role === "citizen";
   const isOfficer = !["citizen", "volunteer"].includes(user?.role);
@@ -36,9 +43,11 @@ function EmergenciesPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [severityFilter, setSeverityFilter] = useState("");
+  const statusFilter = urlStatus || "";
+  const severityFilter = urlSeverity || "";
+  const queueFilter = urlQueue || "";
   const [typeFilter, setTypeFilter] = useState("");
+
   const [search, setSearch] = useState("");
   const [officerRemarks, setOfficerRemarks] = useState("");
   const [resourceId, setResourceId] = useState("");
@@ -82,11 +91,14 @@ function EmergenciesPage() {
       ...(severityFilter ? { severity: severityFilter } : {}),
       ...(typeFilter ? { emergencyType: typeFilter } : {}),
       ...(search ? { search } : {}),
+      ...(queueFilter ? { queue: queueFilter } : {}),
     }),
-    [page, search, severityFilter, statusFilter, typeFilter]
+    [page, search, severityFilter, statusFilter, typeFilter, queueFilter]
   );
 
   const loadDetail = async (id) => {
+    if (selectedEmergency?.id === id) return;
+
     try {
       const response = await emergencyService.getById(id);
       setSelectedEmergency(response.emergency);
@@ -94,6 +106,35 @@ function EmergenciesPage() {
     } catch (requestError) {
       toast.error(getApiErrorMessage(requestError));
     }
+  };
+
+  const updateUrlParams = (key, value) => {
+    const params = new URLSearchParams(searchParams);
+    if (value) {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  const onStatusFilterChange = (value) => {
+    setPage(1);
+    
+    // Clear queue filter when status filter is updated
+    const params = new URLSearchParams(searchParams);
+    if (value) {
+      params.set("status", value);
+    } else {
+      params.delete("status");
+    }
+    params.delete("queue");
+    setSearchParams(params, { replace: true });
+  };
+
+  const onSeverityFilterChange = (value) => {
+    setPage(1);
+    updateUrlParams("severity", value);
   };
 
   useEffect(() => {
@@ -125,7 +166,6 @@ function EmergenciesPage() {
       activeSocket?.off("emergency:acknowledged", handleEmergencyUpdated);
       activeSocket?.off("emergency:resources-assigned", handleEmergencyUpdated);
       activeSocket?.off("emergency:volunteers-assigned", handleEmergencyUpdated);
-      disconnectLiveUpdates();
     };
   }, [isCitizen, selectedEmergency?.id, user?.department, user?.district, user?.id, user?.jurisdictionType, user?.municipality, user?.role, user?.state, user?.village]);
 
@@ -140,9 +180,10 @@ function EmergenciesPage() {
         setPagination(response.pagination || { page: 1, totalPages: 0, totalEmergencies: 0 });
 
         const nextId =
-          selectedEmergency?.id && response.data.some((item) => item.id === selectedEmergency.id)
+          urlId ||
+          (selectedEmergency?.id && response.data.some((item) => item.id === selectedEmergency.id)
             ? selectedEmergency.id
-            : response.data[0]?.id;
+            : response.data[0]?.id);
 
         if (nextId) {
           await loadDetail(nextId);
@@ -170,7 +211,7 @@ function EmergenciesPage() {
     };
 
     loadPage();
-  }, [isAnalyticsRole, isCitizen, isOfficer, query, selectedEmergency?.id]);
+  }, [isAnalyticsRole, isCitizen, isOfficer, query, selectedEmergency?.id, urlId]);
 
   const runBusyAction = async (action) => {
     setBusy(true);
@@ -276,8 +317,8 @@ function EmergenciesPage() {
           <section className="glass-panel rounded-[32px] border border-white/70 bg-white/92 p-5">
             <div className="grid gap-4 md:grid-cols-4">
               <FormField label="Search" name="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search title or location" />
-              <FormField label="Status" name="statusFilter" as="select" value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }} options={[{ value: "", label: "All statuses" }, ...["Submitted", "Acknowledged", "Assigned", "In Progress", "Resolved", "Closed"].map((item) => ({ value: item, label: item }))]} />
-              <FormField label="Severity" name="severityFilter" as="select" value={severityFilter} onChange={(event) => { setSeverityFilter(event.target.value); setPage(1); }} options={[{ value: "", label: "All severities" }, ...EMERGENCY_SEVERITIES.map((item) => ({ value: item, label: item }))]} />
+              <FormField label="Status" name="statusFilter" as="select" value={statusFilter} onChange={(event) => onStatusFilterChange(event.target.value)} options={[{ value: "", label: "All statuses" }, ...["Submitted", "Acknowledged", "Assigned", "In Progress", "Resolved", "Closed"].map((item) => ({ value: item, label: item }))]} />
+              <FormField label="Severity" name="severityFilter" as="select" value={severityFilter} onChange={(event) => onSeverityFilterChange(event.target.value)} options={[{ value: "", label: "All severities" }, ...EMERGENCY_SEVERITIES.map((item) => ({ value: item, label: item }))]} />
               <FormField label="Type" name="typeFilter" as="select" value={typeFilter} onChange={(event) => { setTypeFilter(event.target.value); setPage(1); }} options={[{ value: "", label: "All types" }, ...EMERGENCY_TYPES.map((item) => ({ value: item, label: item }))]} />
             </div>
           </section>

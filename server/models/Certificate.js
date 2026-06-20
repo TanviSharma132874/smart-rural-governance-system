@@ -150,6 +150,11 @@ const certificateSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
+    previousCertificateNumbers: {
+      type: [String],
+      default: [],
+      index: true,
+    },
     correctionRequest: {
       reasonForChange: String,
       requestedChanges: String,

@@ -9,7 +9,7 @@ import LoaderPanel from "../common/LoaderPanel";
 function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [docFiles, setDocFiles] = useState({}); // { category: File }
+  const [docFiles, setDocFiles] = useState({}); // { "category-label": { file, category } }
 
   const {
     register,
@@ -58,15 +58,11 @@ function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
     });
     payload.append("certificateDetails", JSON.stringify(details));
 
-    // Append documents with their categories
-    const categories = [];
-    Object.entries(docFiles).forEach(([category, file]) => {
+    // Append documents with their categories in correct order
+    Object.values(docFiles).forEach(({ file, category }) => {
       payload.append("documents", file);
-      categories.push(category);
+      payload.append("documentCategories", category);
     });
-    
-    // Pass categories to backend
-    categories.forEach(c => payload.append("documentCategories", c));
 
     try {
       await onSubmit(payload);
@@ -154,22 +150,25 @@ function CertificateApplyForm({ currentUser, isSubmitting, onSubmit }) {
                 Mandatory Supporting Documents
               </h3>
               <div className="grid gap-4 md:grid-cols-2">
-                {activeTemplate.requiredDocuments.map((doc) => (
-                  <div key={doc.category} className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="text-xs font-bold text-ink-950 mb-2">
-                      {doc.label || doc.category} {doc.mandatory && <span className="text-rose-500">*</span>}
-                    </p>
-                    <input 
-                      type="file" 
-                      accept=".pdf,image/*" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) setDocFiles(prev => ({ ...prev, [doc.category]: file }));
-                      }}
-                      className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
-                    />
-                  </div>
-                ))}
+                {activeTemplate.requiredDocuments.map((doc, idx) => {
+                  const docKey = `${doc.category}-${doc.label || idx}`;
+                  return (
+                    <div key={docKey} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-xs font-bold text-ink-950 mb-2">
+                        {doc.label || doc.category} {doc.mandatory && <span className="text-rose-500">*</span>}
+                      </p>
+                      <input 
+                        type="file" 
+                        accept=".pdf,image/*" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setDocFiles(prev => ({ ...prev, [docKey]: { file, category: doc.category } }));
+                        }}
+                        className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

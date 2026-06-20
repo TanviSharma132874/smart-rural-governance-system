@@ -14,6 +14,13 @@ function PdfPreviewModal({ isOpen, pdfUrl, onClose }) {
     const fetchPdf = async () => {
       if (!isOpen || !pdfUrl) return;
 
+      // If it's already a blob/object URL, use it directly
+      if (pdfUrl.startsWith("blob:")) {
+        setBlobUrl(pdfUrl);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError("");

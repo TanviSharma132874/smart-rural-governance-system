@@ -17,9 +17,13 @@ const {
 
 const router = express.Router();
 
-router.get("/verify/:id", certificateIdValidator, validateRequest, certificateController.verifyCertificate);
+// Public Verification Route (By Certificate Number)
+router.get("/verify/:certificateNumber", certificateController.verifyCertificatePublic);
 
 router.use(authMiddleware);
+
+// Internal Verification Route (By MongoDB ID)
+router.get("/verify/internal/:id", authorize("departmentOfficer", "panchayatOfficer", "districtAdmin", "stateAdmin", "superAdmin"), certificateIdValidator, validateRequest, certificateController.verifyCertificate);
 
 router.post(
   "/apply",

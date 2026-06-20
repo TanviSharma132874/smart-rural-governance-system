@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const path = require("path");
 const User = require("../models/User");
+const { DEFAULT_SUPER_ADMIN_EMAIL } = require("../config/constants");
+const { seedTemplatesOnly } = require("./seedTemplates");
 
 dotenv.config({
   path: path.resolve(__dirname, "../.env"),
@@ -10,7 +12,7 @@ dotenv.config({
 const users = [
   {
     name: "System Super Admin",
-    email: "superadmin@governance.gov.in",
+    email: DEFAULT_SUPER_ADMIN_EMAIL,
     password: "Welcome@123",
     role: "superAdmin",
     phone: "9000000001",
@@ -146,6 +148,9 @@ const seedDevData = async () => {
       await User.create(userData);
       console.log(`Provisioned ${userData.role}: ${userData.email}`);
     }
+
+    console.log("\nProvisioning certificate templates...");
+    await seedTemplatesOnly();
 
     console.log("\nDev seeding completed successfully.");
     console.log("Common Password: Welcome@123");

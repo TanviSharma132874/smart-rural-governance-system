@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import NotificationBell from "./NotificationBell";
 import { getRoleLabel } from "../../utils/formatters";
 
 function AppNavbar({ user, onLogout }) {
@@ -24,6 +25,8 @@ function AppNavbar({ user, onLogout }) {
         </div>
 
         <div className="flex items-center gap-3">
+          <NotificationBell />
+
           <div className="hidden rounded-full bg-slate-100 px-4 py-2 text-right text-sm text-ink-900 sm:block">
             <p className="font-bold">
               {user?.name || "Authenticated User"}
